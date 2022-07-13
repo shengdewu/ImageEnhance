@@ -31,6 +31,7 @@ class ImageDatasetPaired(ImageDataSet):
                                                                          f_value=cfg.INPUT.INPUT_OVER_EXPOSURE.F_VALUE,
                                                                          log_name=cfg.OUTPUT_LOG_NAME)
 
+        self.scale_factor = cfg.INPUT.DOWN_FACTOR
         return
 
     def __getitem__(self, index):

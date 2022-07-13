@@ -13,6 +13,8 @@ def calculate_psnr(trainer, dataloader, device, criterion_pixel_wise, unnormaliz
         img_input = batch["input"].to(device)
         expert = batch["expert"].to(device)
         expert_fake = trainer.generator(img_input)
+        if isinstance(expert_fake, list) or isinstance(expert_fake, tuple):
+            expert_fake = expert_fake[0]
         expert_fake = torch.round(expert_fake * unnormalizing_value)
         expert = torch.round(expert * unnormalizing_value)
         mse = criterion_pixel_wise(expert_fake, expert)
