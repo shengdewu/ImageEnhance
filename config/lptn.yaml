@@ -1,0 +1,83 @@
+SOLVER:
+  TRAIN_PER_BATCH: 8
+  MAX_ITER: 300000
+  CHECKPOINT_PERIOD: 5000
+  MAX_KEEP: 100
+  TEST_PER_BATCH: 2
+  LR_SCHEDULER:
+    WARMUP_ITERS: 10
+    STEPS: (50000, 100000, 200000, 280000)
+    ENABLED: true
+    GAMMA: 0.5
+  OPTIMIZER:
+    BASE_LR: 0.0001
+    WEIGHT_DECAY: 0.
+    ADAM:
+      B1: 0.9
+      B2: 0.999
+  LOSS:
+    GAN_TYPE: 'lsgan'
+    LAMBDA:
+      LAMBDA_PIXEL: 1000
+      LAMBDA_GP: 100
+      LAMBDA_GAN: 1
+
+MODEL:
+  WEIGHTS_INIT_TYPE: none   #xavier, kaiming, none
+  WEIGHTS: ''
+  DEVICE: cuda
+  ARCH: LPGanModel
+  NETWORK:
+    ARCH: LPTNBasic
+  DISCRIMINATOR:
+    ARCH: Discriminator
+
+DATALOADER:
+  NUM_WORKERS: 12
+  DATA_PATH: /mnt/sdb/data.set/xintu.data/enhance.data/xt.image.enhancement.540.jpg # /train.cache/xt.image.enhance.540.jpg
+  DATASET: ImageDataSetTuUnpaired
+  XT_TRAIN_INPUT_TXT: "all_jpg.train_input.txt"
+  XT_TRAIN_LABEL_TXT: "all_jpg.train_label.txt"
+  XT_TEST_TXT: "all_jpg.test.txt"
+  XT_TEST_MAX_NUMS: 100
+
+INPUT:
+  COLOR_JITTER:
+    ADAPTIVE_LIGHT:
+      ENABLED: false
+      MAX: 1.4
+      MIN: 0.6
+      STEP: 0.1
+    BRIGHTNESS:
+      ENABLE: true
+      MAX: 1.15
+      MIN: 0.8
+      STEP: 0.05
+    COLORTEMPERATURE:
+      ENABLED: true
+      MAX: 26000
+      MID: 12000
+      MID_STEP: 600
+      MIN: 8000
+      STEP: 100
+    CONTRAST:
+      ENABLE: true
+      MAX: 1.2
+      MIN: 0.8
+      STEP: 0.1
+    HUE:
+      ENABLE: true
+      MAX: 0.5
+      MIN: -0.5
+      STEP: 0.05
+    PROB: 0.4
+    SATURATION:
+      ENABLE: true
+      MAX: 1.3
+      MIN: 0.7
+      STEP: 0.1
+  FLIP:
+    RATION: 0.05
+
+OUTPUT_LOG_NAME: "lptn"
+OUTPUT_DIR: /mnt/sda1/train.output/lptn
