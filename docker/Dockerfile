@@ -1,8 +1,10 @@
-FROM dl.nvidia/cuda:10.2-cudnn7-devel-torch1.10
+FROM dl.nvidia/cuda:11.1-cudnn8-devel-torch1.10
 
-COPY ./ImageCureEnhance /code/cure
+COPY codes /home/enhance/codes
+COPY train_tool.py /home/enhance
+COPY whl   /home/enhance/whl
 
-RUN rm -rf /code/cure/*.git && rm -rf /code/cure/*.idea && pip3 install einops
+RUN pip3 install einops && pip3 install /home/enhance/whl/*.whl
 
-WORKDIR /code
-ENTRYPOINT ["python3", "cure/train.py"]
+WORKDIR /home/enhance
+ENTRYPOINT ["python3", "train_tool.py"]

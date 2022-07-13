@@ -1,10 +1,7 @@
 import math
 import torch
-import numpy as np
 from torch import autograd as autograd
-from torch import nn as nn
 from torch.nn import functional as F
-from torch.autograd import Variable
 
 from codes.losses.loss_util import weighted_loss
 
@@ -26,7 +23,7 @@ def charbonnier_loss(pred, target, eps=1e-12):
     return torch.sqrt((pred - target)**2 + eps)
 
 
-class L1Loss(nn.Module):
+class L1Loss(torch.nn.Module):
     """L1 (mean absolute error, MAE) loss.
 
     Args:
@@ -56,7 +53,7 @@ class L1Loss(nn.Module):
             pred, target, weight, reduction=self.reduction)
 
 
-class MSELoss(nn.Module):
+class MSELoss(torch.nn.Module):
     """MSE (L2) loss.
 
     Args:
@@ -86,7 +83,7 @@ class MSELoss(nn.Module):
             pred, target, weight, reduction=self.reduction)
 
 
-class CharbonnierLoss(nn.Module):
+class CharbonnierLoss(torch.nn.Module):
     """Charbonnier loss (one variant of Robust L1Loss, a differentiable
     variant of L1Loss).
 
@@ -144,7 +141,7 @@ class WeightedTVLoss(L1Loss):
         return loss
 
 
-class GANLoss(nn.Module):
+class GANLoss(torch.nn.Module):
     """Define GAN loss.
 
     Args:
@@ -168,17 +165,17 @@ class GANLoss(nn.Module):
         self.fake_label_val = fake_label_val
 
         if self.gan_type == 'vanilla':
-            self.loss = nn.BCEWithLogitsLoss()
+            self.loss = torch.nn.BCEWithLogitsLoss()
         elif self.gan_type == 'standard':
             self.loss = None
         elif self.gan_type == 'lsgan':
-            self.loss = nn.MSELoss()
+            self.loss = torch.nn.MSELoss()
         elif self.gan_type == 'wgan':
             self.loss = self._wgan_loss
         elif self.gan_type == 'wgan_softplus':
             self.loss = self._wgan_softplus_loss
         elif self.gan_type == 'hinge':
-            self.loss = nn.ReLU()
+            self.loss = torch.nn.ReLU()
         else:
             raise NotImplementedError(
                 f'GAN type {self.gan_type} is not implemented.')
