@@ -18,7 +18,7 @@ class CurlLumaNet(torch.nn.Module):
         knot_points = 48
         pre_knot_points = kernel_number
         ratio = pre_knot_points // 2
-        if cfg.MODEL.get('CURL_NET', None) is not None and cfg.MODEL.NETWORK.CURL_NET.get('KERNEL_NUMBER', None) is not None:
+        if cfg.MODEL.NETWORK.get('CURL_NET', None) is not None:
             kernel_number = cfg.MODEL.NETWORK.CURL_NET.KERNEL_NUMBER #32
             knot_points = cfg.MODEL.NETWORK.CURL_NET.KNOT_POINTS  # 48
             pre_knot_points = cfg.MODEL.NETWORK.CURL_NET.get('PRE_KNOT_POINTS', pre_knot_points)

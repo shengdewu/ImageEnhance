@@ -68,7 +68,7 @@ class CurlDownNet(torch.nn.Module):
         knot_points = 30
         self.norm_layer = None
         use_dp = True
-        if cfg.MODEL.get('CURL_NET', None) is not None and cfg.MODEL.NETWORK.CURL_NET.get('KERNEL_NUMBER', None) is not None:
+        if cfg.MODEL.NETWORK.get('CURL_NET', None) is not None:
             kernel_number = cfg.MODEL.NETWORK.CURL_NET.KERNEL_NUMBER #32
             knot_points = cfg.MODEL.NETWORK.CURL_NET.KNOT_POINTS  # 48
             if cfg.MODEL.NETWORK.CURL_NET.get('NORM_ENABLED', True):

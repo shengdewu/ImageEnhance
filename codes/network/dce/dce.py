@@ -9,7 +9,10 @@ from codes.network.build import BUILD_NETWORK_REGISTRY
 class DceNet(torch.nn.Module):
     def __init__(self, cfg):
         super(DceNet, self).__init__()
-        kernel_number = cfg.MODEL.NETWORK.DCE_NET.KERNEL_NUMBER
+        kernel_number = 32
+        if cfg.MODEL.NETWORK.get('DCE_NET', None) is not None:
+            kernel_number = cfg.MODEL.NETWORK.DCE_NET.get('KERNEL_NUMBER', kernel_number)
+
         self.down_factor = cfg.INPUT.DOWN_FACTOR
         assert self.down_factor % 2 == 0 or self.down_factor == 1, 'the {} must be divisible by 2 or equal 1'.format(self.down_factor)
 
