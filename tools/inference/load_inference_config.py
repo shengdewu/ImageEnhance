@@ -43,18 +43,20 @@ def merge_config(use_model_config=False):
         hcfg = CfgNode().load_cfg(f)
         f.close()
 
-        hcfg = convert_old(hcfg)
+        # hcfg = convert_old(hcfg)
 
-        VGG_PATH = cfg.MODEL.VGG.PATH
-        WEIGHTS = cfg.MODEL.WEIGHTS
+        vgg_path = ''
+        if cfg.MODEL.get('VGG', None) is not None:
+            vgg_path = cfg.MODEL.VGG.PATH
+        weights = cfg.MODEL.WEIGHTS
         device = cfg.MODEL.DEVICE
         down_factor = cfg.INPUT.DOWN_FACTOR
         cfg.SOLVER = hcfg.SOLVER
         cfg.MODEL = hcfg.MODEL
 
         if cfg.MODEL.get('VGG', None) is not None:
-            cfg.MODEL.VGG.PATH = VGG_PATH
-        cfg.MODEL.WEIGHTS = WEIGHTS
+            cfg.MODEL.VGG.PATH = vgg_path
+        cfg.MODEL.WEIGHTS = weights
         cfg.MODEL.DEVICE = device
         cfg.INPUT.DOWN_FACTOR = down_factor
 

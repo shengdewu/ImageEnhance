@@ -37,7 +37,9 @@ class InferenceNoneGt(Inference):
 
             real = data['input'].to(self.device).unsqueeze(0)
             with torch.no_grad():
-                enhance_img, cure = self.model.generator(real)
+                enhance_img = self.model.generator(real)
+            if isinstance(enhance_img, list) or isinstance(enhance_img, tuple):
+                enhance_img = enhance_img[0]
 
             img_sample = torch.cat((real.data, enhance_img.data), -1)
 

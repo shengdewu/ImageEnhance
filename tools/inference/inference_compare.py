@@ -18,7 +18,7 @@ def execute_and_compare(dir_names, compare_names, compare_base_path=None, use_on
         onnx_tool.to_onnx(cfg.MODEL.WEIGHTS, onnx_save_path, input_size=input_size, log_name=cfg.OUTPUT_LOG_NAME)
         inference_tool = onnx_tool.load_onnx(onnx_save_path)
     else:
-        inference_tool = InferenceNoneGtOld(cfg, tif=False)
+        inference_tool = InferenceNoneGt(cfg, tif=False)
         inference_tool.resume_or_load()
 
     compare_cls = compare_tool.CompareRow()
@@ -43,6 +43,9 @@ def execute_and_compare(dir_names, compare_names, compare_base_path=None, use_on
             onnx_tool.py_onnx_run(cfg.INPUT.DOWN_FACTOR, data_cfg.DATALOADER.DATA_PATH, out_path, inference_tool, skip=True)
         else:
             inference_tool.loop(data_cfg, skip=True)
+
+        if len(compare_names) == 0:
+            continue
 
         if compare_base_path is not None and len(compare_base_path) > 0:
             base_path = os.path.join(compare_base_path, dir_name)
