@@ -38,13 +38,13 @@ class LapPyramidBicubic(torch.nn.Module):
 
 
 class LapPyramidConv(torch.nn.Module):
-    def __init__(self, num_high=3):
+    def __init__(self, num_high=3, device='cuda'):
         super(LapPyramidConv, self).__init__()
 
         self.num_high = num_high
-        self.kernel = self.gauss_kernel()
+        self.kernel = self.gauss_kernel(device=device)
 
-    def gauss_kernel(self, device=torch.device('cuda'), channels=3):
+    def gauss_kernel(self, device='cuda', channels=3):
         kernel = torch.tensor([[1., 4., 6., 4., 1],
                                [4., 16., 24., 16., 4.],
                                [6., 24., 36., 24., 6.],
@@ -237,7 +237,7 @@ class LPTNBasic(torch.nn.Module):
             nrb_high = lptn_cfg.get('NRB_HIGH', 3)
             num_high = lptn_cfg.get('NUM_HIGH', 3)
 
-        self.lap_pyramid = LapPyramidConv(num_high)
+        self.lap_pyramid = LapPyramidConv(num_high, cfg.MODEL.DEVICE)
         trans_low = TransLow(nrb_low)
         trans_high = TransHighLK3(nrb_high, num_high=num_high)
         self.trans_low = trans_low.cuda()
