@@ -1,0 +1,5 @@
+under_dd_over_v3:
+    rt_tif_16bit_540p_underexposure.only.light.dark.dark_01.txt
+    0.2 * rt_tif_16bit_540p_overexposure.only.light.v3_01.txt
+    rt_tif_16bit_540p.only.light.local.light.v3_01.txt
+    min(len(rt_tif_16bit_540p.txt), 10000), gt_16bit_540p_only_adjust_light.txt

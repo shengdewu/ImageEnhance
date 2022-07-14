@@ -24,7 +24,9 @@ class ImageDatasetPaired(ImageDataSet):
 
         self.color_jitter_prob = cfg.INPUT.COLOR_JITTER.PROB
 
-        self.input_over_exposure_enable = cfg.INPUT.INPUT_OVER_EXPOSURE.ENABLED
+        self.input_over_exposure_enable = False
+        if cfg.INPUT.get('INPUT_OVER_EXPOSURE', None) is not None:
+            self.input_over_exposure_enable = cfg.INPUT.INPUT_OVER_EXPOSURE.ENABLED
         if self.input_over_exposure_enable and self.mode == 'train':
             self.input_over_exposure = augmentation.AdaptiveOverExposure(f_min=cfg.INPUT.INPUT_OVER_EXPOSURE.F_MIN,
                                                                          f_max=cfg.INPUT.INPUT_OVER_EXPOSURE.F_MAX,

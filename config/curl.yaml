@@ -1,88 +1,86 @@
 DATALOADER:
   DATASET: ImageDatasetPaired
-  DATA_PATH: /mnt/sdb/data.set/xintu.data/enhance.data/xt.image.enhancement.540
+  DATA_PATH: /train.cache/xt.image.enhance.540
   NUM_WORKERS: 20
   XT_TEST_MAX_NUMS: 100
-  XT_TEST_TXT: all_test.test.txt
-  XT_TRAIN_INPUT_TXT: all_test.train_input.txt
-  XT_TRAIN_LABEL_TXT: all_test.train_label.txt
+  XT_TEST_TXT: under_dd_over_v3.test.txt
+  XT_TRAIN_INPUT_TXT: under_dd_over_v3.train_input.txt
+  XT_TRAIN_LABEL_TXT: under_dd_over_v3.train_label.txt
 INPUT:
   COLOR_JITTER:
-    ADAPTIVE_LIGHT:
-      ENABLED: false
-      MAX: 1.4
-      MIN: 0.6
-      STEP: 0.1
-    BRIGHTNESS:
-      ENABLE: true
-      MAX: 1.15
-      MIN: 0.8
-      STEP: 0.05
-    COLORTEMPERATURE:
-      ENABLED: false
-      MAX: 26000
-      MID: 12000
-      MID_STEP: 600
-      MIN: 8000
-      STEP: 100
-    CONTRAST:
-      ENABLE: false
-      MAX: 1.4
-      MIN: 0.6
-      STEP: 0.1
-    HIGH_LIGHT:
-      ENABLED: false
-      MAX: 55
-      MIN: 20
-      STEP: 5
-    HUE:
-      ENABLE: false
-      MAX: 0.5
-      MIN: -0.5
-      STEP: 0.05
     PROB: 0.
-    SATURATION:
-      ENABLE: false
-      MAX: 1.4
-      MIN: 0.6
-      STEP: 0.1
-    SHADOW:
-      ENABLED: false
-      MAX: -10
-      MIN: -45
-      STEP: 5
+#    ADAPTIVE_LIGHT:
+#      ENABLED: false
+#      MAX: 1.4
+#      MIN: 0.6
+#      STEP: 0.1
+#    BRIGHTNESS:
+#      ENABLE: true
+#      MAX: 1.15
+#      MIN: 0.8
+#      STEP: 0.05
+#    COLORTEMPERATURE:
+#      ENABLED: false
+#      MAX: 26000
+#      MID: 12000
+#      MID_STEP: 600
+#      MIN: 8000
+#      STEP: 100
+#    CONTRAST:
+#      ENABLE: false
+#      MAX: 1.4
+#      MIN: 0.6
+#      STEP: 0.1
+#    HIGH_LIGHT:
+#      ENABLED: false
+#      MAX: 55
+#      MIN: 20
+#      STEP: 5
+#    HUE:
+#      ENABLE: false
+#      MAX: 0.5
+#      MIN: -0.5
+#      STEP: 0.05
+#    PROB: 0.
+#    SATURATION:
+#      ENABLE: false
+#      MAX: 1.4
+#      MIN: 0.6
+#      STEP: 0.1
+#    SHADOW:
+#      ENABLED: false
+#      MAX: -10
+#      MIN: -45
+#      STEP: 5
   DOWN_FACTOR: 1
   FLIP:
     RATION: 0.05
-  INPUT_OVER_EXPOSURE:
-    ENABLED: false
-    F_MAX: 0.01
-    F_MIN: -1.5
-    F_VALUE: 0.85
-  TRAINING_COLOR_JITTER:
-    ENABLE: false
+#  INPUT_OVER_EXPOSURE:
+#    ENABLED: false
+#    F_MAX: 0.01
+#    F_MIN: -1.5
+#    F_VALUE: 0.85
+#  TRAINING_COLOR_JITTER:
+#    ENABLE: false
 MODEL:
   ARCH: CurlModel
   NETWORK:
-    ARCH: CurlNet
+    ARCH: CurlAttentionNet
     CURL_NET:
-      CA_RATIO: 4
-      KERNEL_NUMBER: 16
-      KNOT_POINTS: 15
-      NORM_ENABLED: true
-      PRE_KNOT_POINTS: 64
+      KERNEL_NUMBER: 32
+      KNOT_POINTS: 30
   DEVICE: cuda
   VGG:
     LAYER: 22
     PATH: /mnt/sdb/pretrain.model/vgg.model/pytorch/vgg16-397923af.pth
   WEIGHTS: ''
   WEIGHTS_INIT_TYPE: none
-OUTPUT_DIR: /mnt/sda1/train.output/enhance.output/img.curl.test
+OUTPUT_DIR: /mnt/sda1/train.output/enhance.output/img.curl
 OUTPUT_LOG_NAME: curl
 SOLVER:
   OPTIMIZER:
     BASE_LR: 0.0001
-    WEIGHT_DECAY: 0.
+    WEIGHT_DECAY: 0.0001
     ADAM:
       B1: 0.9
       B2: 0.999
@@ -98,11 +96,9 @@ SOLVER:
   LR_SCHEDULER:
     ENABLED: true
     GAMMA: 0.5
-    STEPS:
-    - 100000
-    - 180000
+    STEPS: (100000, 180000)
     WARMUP_ITERS: 1000
-  MAX_ITER: 220000
+  MAX_ITER: 260000
   MAX_KEEP: 100
   TEST_PER_BATCH: 4
-  TRAIN_PER_BATCH: 2
+  TRAIN_PER_BATCH: 8
