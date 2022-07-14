@@ -39,7 +39,7 @@ class DceModel(PairBaseModel):
         device_input = data['input'].to(self.device, non_blocking=True)
         device_gt = data['expert'].to(self.device, non_blocking=True)
 
-        enhance_img, cure = self.model(device_input)
+        enhance_img, cure = self.g_model(device_input)
 
         spa_loss = torch.mean(self.spa_loss(device_input, enhance_img))
         col_loss = torch.mean(self.col_loss(enhance_img))
@@ -53,9 +53,9 @@ class DceModel(PairBaseModel):
                      self.lambda_exp * exp_loss + self.lambda_tv * tv_loss + \
                      self.lambda_pixel * pixel_loss + self.lambda_vgg * vgg_loss
 
-        self.optimizer.zero_grad()
+        self.g_optimizer.zero_grad()
         total_loss.backward()
-        self.optimizer.step()
+        self.g_optimizer.step()
 
         return {'total_loss': total_loss.item(),
                 'spa_loss': spa_loss.item(),

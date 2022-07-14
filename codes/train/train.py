@@ -1,5 +1,5 @@
 from engine.trainer.trainer import BaseTrainer
-from engine.model.model import BaseModel
+from engine.model.base_model import BaseModel
 from engine.log.logger import setup_logger
 import engine.comm as comm
 from codes.model.build import build_model

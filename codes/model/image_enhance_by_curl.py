@@ -22,7 +22,7 @@ class CurlModel(PairBaseModel):
         self.lambda_cos = cfg.SOLVER.LOSS.LAMBDA_COS
         self.lambda_spline = cfg.SOLVER.LOSS.LAMBDA_SPLINE
         self.lambda_pixel = cfg.SOLVER.LOSS.LAMBDA_PIXEL
-        self.model_is_luma = self.model.__class__.__name__ == CurlLumaNet.__name__
+        self.model_is_luma = self.g_model.__class__.__name__ == CurlLumaNet.__name__
         return
 
     def run_step(self, data, *, epoch=None, **kwargs):
@@ -37,9 +37,9 @@ class CurlModel(PairBaseModel):
         if self.model_is_luma:
             device_gray = rgb2luma.rgb2luma_bt601_nchw(device_input).unsqueeze(1)
             # device_gray = data['luma'].to(self.device, non_blocking=True)
-            enhance_img, spline = self.model(device_input, device_gray)
+            enhance_img, spline = self.g_model(device_input, device_gray)
         else:
-            enhance_img, spline = self.model(device_input)
+            enhance_img, spline = self.g_model(device_input)
 
         device_gt = data['expert'].to(self.device, non_blocking=True)
 
@@ -50,9 +50,9 @@ class CurlModel(PairBaseModel):
 
         total_loss = self.lambda_pixel * pixel_loss + self.lambda_ssim * ssim_loss + self.lambda_vgg * vgg_loss + self.lambda_spline * spline + self.lambda_cos * cos_loss
 
-        self.optimizer.zero_grad()
+        self.g_optimizer.zero_grad()
         total_loss.backward()
-        self.optimizer.step()
+        self.g_optimizer.step()
 
         return {'total_loss': total_loss.item(),
                 'pixel_loss': pixel_loss.item(),
@@ -64,7 +64,7 @@ class CurlModel(PairBaseModel):
     def generator(self, input_data):
         if self.model_is_luma:
             gray_data = rgb2luma.rgb2luma_bt601_nchw(input_data).unsqueeze(1)
-            return self.model(input_data.to(self.device, non_blocking=True), gray_data.to(self.device, non_blocking=True))
+            return self.g_model(input_data.to(self.device, non_blocking=True), gray_data.to(self.device, non_blocking=True))
         else:
-            return self.model(input_data.to(self.device, non_blocking=True))
+            return self.g_model(input_data.to(self.device, non_blocking=True))
 

@@ -1,5 +1,5 @@
 import torch.optim
-from engine.model.model import BaseModel
+from engine.model.base_model import BaseModel
 from engine.slover import build_lr_scheduler, build_optimizer_with_gradient_clipping
 from engine.model.init_model import select_weights_init
 from typing import Iterator
@@ -15,18 +15,18 @@ class PairBaseModel(BaseModel):
         self.device = cfg.MODEL.DEVICE
         return
 
-    def create_optimizer(self, cfg, parameters: Iterator[torch.nn.Parameter]) -> torch.optim.Optimizer:
+    def create_g_optimizer(self, cfg, parameters: Iterator[torch.nn.Parameter]) -> torch.optim.Optimizer:
         return build_optimizer_with_gradient_clipping(cfg, torch.optim.Adam)(
-            self.model.parameters(),
+            parameters,
             lr=cfg.SOLVER.OPTIMIZER.BASE_LR,
             betas=(cfg.SOLVER.OPTIMIZER.ADAM.B1, cfg.SOLVER.OPTIMIZER.ADAM.B2),
             weight_decay=cfg.SOLVER.OPTIMIZER.WEIGHT_DECAY
         )
 
-    def create_scheduler(self, cfg, optimizer: torch.optim.Optimizer) -> torch.optim.lr_scheduler._LRScheduler:
-        return build_lr_scheduler(cfg, self.optimizer)
+    def create_g_scheduler(self, cfg, optimizer: torch.optim.Optimizer) -> torch.optim.lr_scheduler._LRScheduler:
+        return build_lr_scheduler(cfg, optimizer)
 
-    def create_model(self, cfg) -> torch.nn.Module:
+    def create_g_model(self, cfg) -> torch.nn.Module:
         model = build_generator(cfg)
         if cfg.MODEL.get('WEIGHTS_INIT_TYPE', 'none') != 'none':
             model.apply(select_weights_init(cfg.MODEL.WEIGHTS_INIT_TYPE)) #初始化和对应的激活函数有关系
@@ -36,4 +36,4 @@ class PairBaseModel(BaseModel):
         raise NotImplemented('the run_step must be implement')
 
     def generator(self, input_data):
-        return self.model(input_data.to(self.device, non_blocking=True))
+        return self.g_model(input_data.to(self.device, non_blocking=True))
