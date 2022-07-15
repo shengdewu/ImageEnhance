@@ -30,7 +30,7 @@ def fromlist(batch_img_list):
     input_batch['name'] = [data['name'] for data in batch_img_list]
     # max_size can be a tensor in tracing mode, therefore convert to list
     input_batch['input'] = pad_img(img_input, max_size)
-    input_batch['expert'] = pad_img(img_input, max_size)
+    input_batch['expert'] = pad_img(img_expert, max_size)
     if img_ref is not None:
         input_batch['ref'] = pad_img(img_ref, max_size)
 
