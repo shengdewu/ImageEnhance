@@ -32,7 +32,9 @@ def visualize_result(trainer, dataloader, device, save_path, criterion_pixel_wis
     for i, batch in enumerate(dataloader):
         img_input = batch["input"].to(device)
         expert = batch["expert"].to(device)
-        expert_fake, cure = trainer.generator(img_input)
+        expert_fake = trainer.generator(img_input)
+        if isinstance(expert_fake, list) or isinstance(expert_fake, tuple):
+            expert_fake = expert_fake[0]
         img_sample = torch.cat((img_input.data, expert_fake.data, expert.data), -1)
         expert_fake = torch.round(expert_fake * unnormalizing_value)
         expert = torch.round(expert * unnormalizing_value)
