@@ -42,7 +42,10 @@ class LapPyramidConv(torch.nn.Module):
         super(LapPyramidConv, self).__init__()
 
         self.num_high = num_high
-        self.kernel = self.gauss_kernel(device=device)
+        kernel = self.gauss_kernel(device=device)
+        self.kernel = dict()
+        self.kernel[kernel.device] = kernel
+        return
 
     def gauss_kernel(self, device='cuda', channels=3):
         kernel = torch.tensor([[1., 4., 6., 4., 1],
@@ -55,6 +58,14 @@ class LapPyramidConv(torch.nn.Module):
         kernel = kernel.to(device)
         return kernel
 
+    def get_kernel(self, device):
+        kernel = self.kernel.get(device, None)
+        if kernel is None:
+            print('in {} not found kernel'.format(device))
+            kernel = self.kernel[list(self.kernel.keys())[0]].detach().clone().to(device)
+            self.kernel[device] = kernel
+        return kernel
+
     def down_sample(self, x):
         return x[:, :, ::2, ::2]
 
@@ -65,7 +76,8 @@ class LapPyramidConv(torch.nn.Module):
         cc = torch.cat([cc, torch.zeros(x.shape[0], x.shape[1], x.shape[3], x.shape[2] * 2, device=x.device)], dim=3)
         cc = cc.view(x.shape[0], x.shape[1], x.shape[3] * 2, x.shape[2] * 2)
         x_up = cc.permute(0, 1, 3, 2)
-        return self.conv_gauss(x_up, 4 * self.kernel)
+        kernel = self.get_kernel(x.device)
+        return self.conv_gauss(x_up, 4 * kernel)
 
     def conv_gauss(self, img, kernel):
         img = torch.nn.functional.pad(img, (2, 2, 2, 2), mode='reflect')
@@ -75,8 +87,9 @@ class LapPyramidConv(torch.nn.Module):
     def pyramid_decom(self, img):
         current = img
         pyr = []
+        kernel = self.get_kernel(img.device)
         for _ in range(self.num_high):
-            filtered = self.conv_gauss(current, self.kernel)
+            filtered = self.conv_gauss(current, kernel)
             down = self.down_sample(filtered)
             up = self.up_sample(down)
             if up.shape[2] != current.shape[2] or up.shape[3] != current.shape[3]:
