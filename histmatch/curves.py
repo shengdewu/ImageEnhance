@@ -1,7 +1,4 @@
-
-def clip(v, min_v, max_v):
-    v = v if v > min_v else min_v
-    return v if v < max_v else max_v
+import util
 
 
 class Curve:
@@ -105,4 +102,4 @@ class Curve:
                 a = (self.x[k_hi] - t) / h
                 b = (t - self.x[k_lo]) / h
                 r = a * self.y[k_lo] + b * self.y[k_hi] + ((a * a * a - a) * self.ypp[k_lo] + (b * b * b - b) * self.ypp[k_hi]) * (h * h) * 0.1666666666666666666666666666666;
-                return clip(r, 0.0, 1.0)
+                return util.clip(r, 0.0, 1.0)

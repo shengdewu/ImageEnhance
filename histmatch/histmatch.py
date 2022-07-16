@@ -1,9 +1,8 @@
 import cv2
-import numpy
-import os
-
-import curves
 import numpy as np
+
+import curve_eval
+import curves
 
 
 class CdfInfo:
@@ -227,5 +226,8 @@ class HistMatching:
 
         candidates = list()
         self.mapping_curve(mapping, candidates)
-        
+
+        eval = curve_eval.CurveEvaluator(source, target)
+        source = eval(candidates)
+
         return
