@@ -2,6 +2,7 @@ import cv2
 import numpy
 import os
 
+import curves
 import numpy as np
 
 
@@ -54,6 +55,34 @@ class HistMatching:
     def coord(v: int) -> float:
         return float(v) / 255.0
 
+    def ensure_not_clipping(self, curve: list, log:bool=True):
+        c = curves.Curve(curve)
+        pivot = curve[5]
+        start = pivot / 2
+        while start >= 0.01:
+            mid = start / 2
+            y = c.get_val(mid)
+            if y <= 0:
+                curve[4] += (curve[3] - curve[4]) / 2
+                if log:
+                    print('histogram matching: bumping up ({},{}) to {}  to avoid negative clipping at {}'.format(curve[3], c.get_val(curve[3]), curve[4], mid))
+                self.ensure_not_clipping(curve, log)
+                return
+            else:
+                start = mid
+        start = pivot + (1.0 - pivot) / 2.0
+        while start <= 0.9:
+            mid = start + (1 - start)
+            y = c.get_val(mid)
+            if y >= 1:
+                curve[8] += (curve[7] - curve[8]) * 0.1
+                if log:
+                    print('histogram matching: bumping up ({},{}) to {}  to avoid negative clipping at {}'.format(curve[7], c.get_val(curve[7]), curve[8], mid))
+                self.ensure_not_clipping(curve, log)
+            else:
+                start = mid
+        return
+
     def mapping_curve(self, mapping: list, curve: list):
         curve.clear()
         idx = 15
@@ -87,6 +116,84 @@ class HistMatching:
         curve.append(0.0)
         curve.append(0.0)
 
+        start = 0
+        while start < idx and (mapping[start] < 0 or start < idx / 2):
+            start += 1
+
+        npoints = 8
+        step = max(len(mapping)//npoints, 1)
+        end = len(mapping)
+        if idx <= end / 3:
+            doit(start, idx, idx // 2, True)
+            step = (end - idx) // 4
+            doit(idx, end, step, False, step)
+        else:
+            doit(start, idx, step if idx > step else idx // 2, True)
+            doit(idx, end, step, idx - step > step / 2 and abs(curve[len(curve)-2] - self.coord(idx)) > 0.01)
+
+        if len(curve) > 2 and (1 - curve[len(curve)-1] <= self.coord(step)/3):
+            curve.pop()
+            curve.pop()
+
+        curve.append(1.0)
+        curve.append(1.0)
+
+        def getpos(x: float, xa: float, ya: float, xb:float, yb: float):
+            return (x - xa) / (xb - xa) * (yb -ya) + ya
+
+        idx = -1
+        for i in range(len(curve)-1, 0, -2):
+            if curve[i] <= 0.:
+                idx = i + 1
+                break
+        if 0 <= idx < len(curve):
+            while (idx + 5) < len(curve):
+                xa = curve[idx]
+                ya = curve[idx+1]
+                x = curve[idx+2]
+                y = curve[idx+3]
+                xb = curve[idx+4]
+                yb = curve[idx+5]
+                yy = getpos(x, xa, ya, xb, yb)
+                if yy > y:
+                    del curve[idx+2:idx+4]
+                else:
+                    idx += 2
+        if len(curve) < 4:
+            curve.clear()
+        else:
+            c = curves.Curve(curve)
+            curve.clear()
+
+            pivot = -1.0
+            for i in range(25, 256, 1):
+                xx = float(i) / 255.0
+                if c.get_val(xx) > xx:
+                    pivot = xx
+                    break
+            if pivot > 0:
+                curve.append(0.0)
+                curve.append(c.get_val(0.0))
+                curve.append(pivot / 2.0)
+                curve.append(c.get_val(pivot / 2.0))
+                curve.append(pivot)
+                curve.append(c.get_val(pivot))
+                curve.append(pivot + (1.0 - pivot) / 2.0)
+                curve.append(c.get_val(pivot + (1.0 - pivot) / 2.0))
+                curve.append(1.0)
+                curve.append(c.get_val(1.0))
+                self.ensure_not_clipping(curve, True)
+            else:
+                x = 0.0
+                gap = 0.05
+                while x < 1.0:
+                    curve.append(x)
+                    curve.append(c.get_val(x))
+                    x += gap
+                    gap *= 1.4
+            curve.append(1.0)
+            curve.append(c.get_val(1.0))
+
         return
 
     def get_auto_matched_tone_curve(self, target: np.ndarray, source: np.ndarray):
@@ -119,5 +226,6 @@ class HistMatching:
                 mapping.append(-1)
 
         candidates = list()
-
+        self.mapping_curve(mapping, candidates)
+        
         return
