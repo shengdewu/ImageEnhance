@@ -1,11 +1,11 @@
 DATALOADER:
   DATASET: ImageDatasetPaired
-  DATA_PATH: /mnt/sdb/data.set/xintu.data/enhance.data/xt.image.enhancement.540
+  DATA_PATH: /train.cache/xt.image.enhance.540
   NUM_WORKERS: 20
   XT_TEST_MAX_NUMS: 100
-  XT_TEST_TXT: all_test.test.txt
-  XT_TRAIN_INPUT_TXT: all_test.train_input.txt
-  XT_TRAIN_LABEL_TXT: all_test.train_label.txt
+  XT_TEST_TXT: under_dd_over_v3.test.txt
+  XT_TRAIN_INPUT_TXT: under_dd_over_v3.train_input.txt
+  XT_TRAIN_LABEL_TXT: under_dd_over_v3.train_label.txt
 INPUT:
   COLOR_JITTER:
     ADAPTIVE_LIGHT:
@@ -90,9 +90,7 @@ SOLVER:
   LR_SCHEDULER:
     ENABLED: true
     GAMMA: 0.5
-    STEPS:
-    - 100000
-    - 180000
+    STEPS: (100000, 180000)
   MAX_ITER: 220000
   MAX_KEEP: 100
   OPTIMIZER:
