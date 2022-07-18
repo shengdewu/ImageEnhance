@@ -21,7 +21,7 @@ def to_onnx(model_path, onnx_name, input_size, device='cpu', log_name=''):
                       torch.zeros(size=input_size, device=device, dtype=torch.float32),
                       onnx_name,
                       # export_params=False,
-                      dynamic_axes={'input_img': {0: 'h', 1: 'w'}},
+                      dynamic_axes={'input_img': {2: 'h', 3: 'w'}},
                       input_names=['input_img'],
                       output_names=['out_dce'],
                       opset_version=11)

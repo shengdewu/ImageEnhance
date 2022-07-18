@@ -5,6 +5,7 @@ import onnx
 import onnxruntime
 import time
 from tools.inference.onnx_model.curl_attention import CurlAttentionNet
+from tools.inference.onnx_model.curl_luma import CurlLumaNet
 from tools.inference.onnx_model.curl import CurlNet
 from engine.checkpoint.checkpoint_state_dict import CheckPointStateDict
 import engine.checkpoint.functional as checkpoint_f
@@ -19,7 +20,7 @@ def _create_curl_net(cfg):
 
 
 def _create_spline_att_net(cfg):
-    return CurlAttentionNet(ratio=cfg.CA_RATIO, pre_knot_points=cfg.PRE_KNOT_POINTS, kernel_number=cfg.KERNEL_NUMBER, knot_points=cfg.KNOT_POINTS)
+    return CurlLumaNet(ratio=cfg.CA_RATIO, pre_knot_points=cfg.PRE_KNOT_POINTS, kernel_number=cfg.KERNEL_NUMBER, knot_points=cfg.KNOT_POINTS)
 
 
 def to_onnx(model_path, spline_cfg, onnx_name, input_size, device='cpu', log_name=''):
@@ -30,9 +31,9 @@ def to_onnx(model_path, spline_cfg, onnx_name, input_size, device='cpu', log_nam
                       torch.zeros(size=input_size, device=device, dtype=torch.float32),
                       onnx_name,
                       # export_params=False,
-                      dynamic_axes={'input_img': {2: 'h', 3: 'w'}},
-                      input_names=['input_img'],
-                      output_names=['r', 'g', 'b'],
+                      dynamic_axes={'gray_img': {2: 'h', 3: 'w'}},
+                      input_names=['gray_img'],
+                      output_names=['r'],
                       opset_version=11)
 
     model = onnx.load(onnx_name)

@@ -15,7 +15,7 @@ def execute_and_compare(dir_names, compare_names, compare_base_path=None, use_on
         onnx_tool = curl_onnx
         if cfg.MODEL.ARCH == 'DceModel':
             onnx_tool = dce_onnx
-        onnx_tool.to_onnx(cfg.MODEL.WEIGHTS, onnx_save_path, input_size=input_size, log_name=cfg.OUTPUT_LOG_NAME)
+        onnx_tool.to_onnx(cfg.MODEL.WEIGHTS, cfg.MODEL.NETWORK.CURL_NET, onnx_save_path, input_size=input_size, log_name=cfg.OUTPUT_LOG_NAME)
         inference_tool = onnx_tool.load_onnx(onnx_save_path)
     else:
         inference_tool = InferenceNoneGt(cfg, tif=False)
