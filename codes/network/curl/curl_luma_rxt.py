@@ -87,7 +87,7 @@ class CurlLumaRXTNet(torch.nn.Module):
         knot_points = cfg.MODEL.NETWORK.CURL_XT.get('KNOT_POINTS', 15)
         self._norm_layer = torch.nn.InstanceNorm2d
 
-        self.conv1 = torch.nn.Conv2d(1, self.in_planes, kernel_size=3, stride=2, padding=1, bias=False)
+        self.conv1 = torch.nn.Conv2d(1+3, self.in_planes, kernel_size=3, stride=2, padding=1, bias=False)
         self.bn1 = torch.nn.InstanceNorm2d(self.in_planes)
         self.relu = torch.nn.ReLU(inplace=True)
 
@@ -126,10 +126,14 @@ class CurlLumaRXTNet(torch.nn.Module):
 
     def forward(self, img, gray):
         d_gray = gray
+        d_img = img
         if self.down_factor > 1:
             d_gray = torch_func.interpolate(d_gray, scale_factor=1/self.down_factor, mode='bilinear')
+            d_img = torch_func.interpolate(d_img, scale_factor=1/self.down_factor, mode='bilinear')
 
-        x = self.conv1(d_gray)
+        in_ten = torch.cat([d_img, d_gray], dim=1)
+
+        x = self.conv1(in_ten)
         x = self.bn1(x)
         x = self.relu(x)
 
