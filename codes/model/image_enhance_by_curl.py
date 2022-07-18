@@ -4,7 +4,6 @@ from engine.loss.vgg_loss import PerceptualLoss
 import engine.loss.ssim_loss as engine_ssim
 from .image_enhance_pair_base import PairBaseModel
 from codes.data.fn import rgb2luma
-from codes.network.curl.curl_luma import CurlLumaNet
 
 
 @BUILD_MODEL_REGISTRY.register()
@@ -22,7 +21,7 @@ class CurlModel(PairBaseModel):
         self.lambda_cos = cfg.SOLVER.LOSS.LAMBDA_COS
         self.lambda_spline = cfg.SOLVER.LOSS.LAMBDA_SPLINE
         self.lambda_pixel = cfg.SOLVER.LOSS.LAMBDA_PIXEL
-        self.model_is_luma = self.g_model.__class__.__name__ == CurlLumaNet.__name__
+        self.model_is_luma = cfg.MODEL.NETWORK.ARCH in ['CurlLumaRXTNet', 'CurlLumaNet']
         return
 
     def run_step(self, data, *, epoch=None, **kwargs):
