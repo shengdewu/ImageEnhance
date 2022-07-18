@@ -1,6 +1,7 @@
 import torch
 from typing import Type, Any, Callable, Union, List, Optional
 from .curl_tool import CureApply
+import torch.nn.functional as torch_func
 import logging
 from codes.network.build import BUILD_NETWORK_REGISTRY
 
@@ -75,6 +76,9 @@ class CurlLumaRXTNet(torch.nn.Module):
 
         logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}'.format(self.__class__))
 
+        self.down_factor = cfg.INPUT.DOWN_FACTOR
+        assert self.down_factor % 2 == 0 or self.down_factor == 1, 'the {} must be divisible by 2 or equal 1'.format(self.down_factor)
+
         self.dilation = 1
         self.in_planes = cfg.MODEL.NETWORK.CURL_XT.get('IN_PLANES', 64)
         self.base_width = cfg.MODEL.NETWORK.CURL_XT.get('BASE_WIDTH', 4)
@@ -121,7 +125,11 @@ class CurlLumaRXTNet(torch.nn.Module):
         return torch.nn.Sequential(*layers)
 
     def forward(self, img, gray):
-        x = self.conv1(gray)
+        d_gray = gray
+        if self.down_factor > 1:
+            d_gray = torch_func.interpolate(d_gray, scale_factor=1/self.down_factor, mode='bilinear')
+
+        x = self.conv1(d_gray)
         x = self.bn1(x)
         x = self.relu(x)
 
