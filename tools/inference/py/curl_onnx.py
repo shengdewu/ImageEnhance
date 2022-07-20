@@ -26,14 +26,14 @@ def _create_spline_att_net(cfg):
 def to_onnx(model_path, spline_cfg, onnx_name, input_size, device='cpu', log_name=''):
     model_state_dict, _ = CheckPointStateDict(save_dir='', save_to_disk=False).resume_or_load(model_path, resume=False)
     spline_model = _create_spline_att_net(spline_cfg)
-    checkpoint_f.load_model_state_dict(spline_model, model_state_dict['model'], log_name=log_name)
+    checkpoint_f.load_model_state_dict(spline_model, model_state_dict['g_model'], log_name=log_name)
     torch.onnx.export(spline_model,
                       torch.zeros(size=input_size, device=device, dtype=torch.float32),
                       onnx_name,
                       # export_params=False,
                       dynamic_axes={'gray_img': {2: 'h', 3: 'w'}},
                       input_names=['gray_img'],
-                      output_names=['r'],
+                      output_names=['L'],
                       opset_version=11)
 
     model = onnx.load(onnx_name)
