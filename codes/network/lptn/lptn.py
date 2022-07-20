@@ -251,11 +251,9 @@ class LPTNBasic(torch.nn.Module):
             num_high = lptn_cfg.get('NUM_HIGH', 3)
 
         self.lap_pyramid = LapPyramidConv(num_high, cfg.MODEL.DEVICE)
-        trans_low = TransLow(nrb_low)
-        trans_high = TransHighLK3(nrb_high, num_high=num_high)
-        self.trans_low = trans_low.cuda()
-        self.trans_high = trans_high.cuda()
-        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}'.format(self.__class__))
+        self.trans_low = TransLow(nrb_low).to(cfg.MODEL.DEVICE)
+        self.trans_high = TransHighLK3(nrb_high, num_high=num_high).to(cfg.MODEL.DEVICE)
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}\nnrb_low: {}\nnrb_high: {}\nnum_high: {}'.format(self.__class__, nrb_low, nrb_high, num_high))
         return
 
     def forward(self, real_a_full):
