@@ -21,7 +21,7 @@ class TEDConv2d(torch.nn.Module):
 
 
 class TransformedEncoderDecoder(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, out_kernel=64):
         super(TransformedEncoderDecoder, self).__init__()
 
         self.down1 = TEDConv2d(in_channels=3, out_channels=16)
@@ -45,7 +45,7 @@ class TransformedEncoderDecoder(torch.nn.Module):
 
         self.msca_model = MSCA(in_channels=16, mid_channels=64)
 
-        self.final_conv = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=0)
+        self.final_conv = torch.nn.Conv2d(in_channels=3, out_channels=out_kernel, kernel_size=3, stride=1, padding=0)
         self.final_pad = torch.nn.ReflectionPad2d(1)
         return
 

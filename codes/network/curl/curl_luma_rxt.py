@@ -78,8 +78,6 @@ class CurlLumaRXTNet(torch.nn.Module):
     def __init__(self, cfg):
         super(CurlLumaRXTNet, self).__init__()
 
-        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}'.format(self.__class__))
-
         self.down_factor = cfg.INPUT.DOWN_FACTOR
         assert self.down_factor % 2 == 0 or self.down_factor == 1, 'the {} must be divisible by 2 or equal 1'.format(self.down_factor)
 
@@ -89,6 +87,15 @@ class CurlLumaRXTNet(torch.nn.Module):
         self.cardinality = cfg.MODEL.NETWORK.CURL_XT.get('CARDINALITY', 16)
         self.expansion = cfg.MODEL.NETWORK.CURL_XT.get('EXPANSION', 1)
         knot_points = cfg.MODEL.NETWORK.CURL_XT.get('KNOT_POINTS', 15)
+
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {} \nin_planes: {} \nbase_width: {} \ncardinality: {}\nexpansion:{} \nknot_points:{} \ndown_factor: {}'.format(self.__class__,
+                                                                                                                                                                                   self.in_planes,
+                                                                                                                                                                                   self.base_width,
+                                                                                                                                                                                   self.cardinality,
+                                                                                                                                                                                   self.expansion,
+                                                                                                                                                                                   knot_points,
+                                                                                                                                                                                   self.down_factor))
+
         self._norm_layer = torch.nn.InstanceNorm2d
 
         self.conv1 = torch.nn.Conv2d(1, self.in_planes, kernel_size=7, stride=2, padding=3, bias=False)

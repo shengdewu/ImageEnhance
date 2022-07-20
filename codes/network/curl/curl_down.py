@@ -62,8 +62,6 @@ class CurlDownNet(torch.nn.Module):
     def __init__(self, cfg, is_rgb=True):
         super(CurlDownNet, self).__init__()
 
-        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}'.format(self.__class__))
-
         kernel_number = 48
         knot_points = 30
         self.norm_layer = None
@@ -83,6 +81,13 @@ class CurlDownNet(torch.nn.Module):
         self.in_planes = kernel_number
 
         self.device = cfg.MODEL.DEVICE
+
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {} \nkernel_number: {} \nknot_points: {} \nuse_depth_wise: {}\ninstance norm2d: {} \ndown_factor: {}'.format(self.__class__,
+                                                                                                                                                                               kernel_number,
+                                                                                                                                                                               knot_points,
+                                                                                                                                                                               use_dp,
+                                                                                                                                                                               True if self.norm_layer is not None else False,
+                                                                                                                                                                               self.down_factor))
 
         if self.norm_layer is not None:
             self.head = torch.nn.Sequential(

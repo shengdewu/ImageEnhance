@@ -12,8 +12,6 @@ class CurlLumaNet(torch.nn.Module):
     def __init__(self, cfg):
         super(CurlLumaNet, self).__init__()
 
-        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}'.format(self.__class__))
-
         kernel_number = 32
         knot_points = 48
         pre_knot_points = kernel_number
@@ -28,6 +26,13 @@ class CurlLumaNet(torch.nn.Module):
         assert self.down_factor % 2 == 0 or self.down_factor == 1, 'the {} must be divisible by 2 or equal 1'.format(self.down_factor)
 
         self.device = cfg.MODEL.DEVICE
+
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {} \nkernel_number: {} \nknot_points: {} \npre_knot_points: {}\nratio:{} \ndown_factor: {}'.format(self.__class__,
+                                                                                                                                                                       kernel_number,
+                                                                                                                                                                       knot_points,
+                                                                                                                                                                       pre_knot_points,
+                                                                                                                                                                       ratio,
+                                                                                                                                                                       self.down_factor))
 
         self.channel_attention = cbam.ChannelAttentionModule(pre_knot_points, ratio)
         self.spatial_attention = cbam.SpatialAttentionModule()

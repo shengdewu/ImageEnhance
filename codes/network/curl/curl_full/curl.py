@@ -3,6 +3,7 @@ import torch.nn.functional as torch_func
 from .ted import TransformedEncoderDecoder
 from ..curl_tool import CureApply
 from codes.network.build import BUILD_NETWORK_REGISTRY
+import logging
 
 __all__ = ['CURLFullNet']
 
@@ -25,14 +26,14 @@ class CURLConvBlock(torch.nn.Module):
 
 
 class CurveLayer(torch.nn.Module):
-    def __init__(self, device='cuda'):
+    def __init__(self, kernel_number=64, knot_points=48, device='cuda'):
         super(CurveLayer, self).__init__()
-        self.rgb_layer1 = CURLConvBlock(64, 64)
-        self.rgb_layer2 = CURLConvBlock(64, 64)
-        self.rgb_layer3 = CURLConvBlock(64, 64)
-        self.rgb_layer4 = CURLConvBlock(64, 64, is_down=False)
+        self.rgb_layer1 = CURLConvBlock(kernel_number, kernel_number)
+        self.rgb_layer2 = CURLConvBlock(kernel_number, kernel_number)
+        self.rgb_layer3 = CURLConvBlock(kernel_number, kernel_number)
+        self.rgb_layer4 = CURLConvBlock(kernel_number, kernel_number, is_down=False)
         self.rgb_avg = torch.nn.AdaptiveAvgPool2d(1)
-        self.rgb_fc = torch.nn.Linear(64, 48)
+        self.rgb_fc = torch.nn.Linear(kernel_number, knot_points)
         self.rgb_dropout = torch.nn.Dropout(0.5)
 
         self.device = device
@@ -40,10 +41,6 @@ class CurveLayer(torch.nn.Module):
         return
 
     def forward(self, x):
-        # x.contiguous()
-        feature = x[:, 3:64, :, :]
-        img = x[:, :3, :, :]
-
         x = self.rgb_layer1(x)
         x = self.rgb_layer2(x)
         x = self.rgb_layer3(x)
@@ -62,9 +59,21 @@ class CURLFullNet(torch.nn.Module):
 
         self.down_factor = cfg.INPUT.DOWN_FACTOR
         assert self.down_factor % 2 == 0 or self.down_factor == 1, 'the {} must be divisible by 2 or equal 1'.format(self.down_factor)
+        kernel_number = 64
+        knot_points = 48
+        if cfg.MODEL.NETWORK.get('CURL_FULL_NET', None) is not None:
+            kernel_number = cfg.MODEL.NETWORK.CURL_FULL_NET.get('KERNEL_NUMBER', kernel_number)
+            knot_points = cfg.MODEL.NETWORK.CURL_FULL_NET.get('KNOT_POINTS', knot_points)
 
-        self.ted = TransformedEncoderDecoder()
-        self.cure = CurveLayer(cfg.MODEL.DEVICE)
+        assert knot_points % 3 == 0, 'the {} must be divisible by 3'.format(knot_points)
+
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {} \nkernel_number: {} \nknot_points:{} \ndown_factor: {}'.format(self.__class__,
+                                                                                                                                      kernel_number,
+                                                                                                                                      knot_points,
+                                                                                                                                      self.down_factor))
+
+        self.ted = TransformedEncoderDecoder(kernel_number)
+        self.cure = CurveLayer(kernel_number, knot_points, cfg.MODEL.DEVICE)
         return
 
     def forward(self, x):
