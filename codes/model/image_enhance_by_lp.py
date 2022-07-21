@@ -5,6 +5,7 @@ from codes.losses.losses import MSELoss, GANLoss
 from codes.model.build import BUILD_MODEL_REGISTRY
 from codes.network.build import build_generator
 from codes.losses.gradient_penalty import compute_gradient_penalty
+import logging
 
 
 @BUILD_MODEL_REGISTRY.register()
@@ -18,6 +19,10 @@ class LPGanModel(GanBaseModel):
 
         self.net_d_iters = cfg.SOLVER.LOSS.get('DISCRIMINATOR_ITERS', 1)
         self.net_d_init_iters = cfg.SOLVER.LOSS.get('DISCRIMINATOR_INIT_ITERS', 0)
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('param: \nGAN_TYPE: {} \nLAMBDA_GP: {} \nDISCRIMINATOR_ITERS: {}\nDISCRIMINATOR_INIT_ITERS:{}'.format(cfg.SOLVER.LOSS.get('GAN_TYPE', 'lsgan'),
+                                                                                                                                                          cfg.SOLVER.LOSS.LAMBDA.get('LAMBDA_GP', 100),
+                                                                                                                                                          self.net_d_iters,
+                                                                                                                                                          self.net_d_init_iters))
         return
 
     def create_g_model(self, cfg) -> torch.nn.Module:

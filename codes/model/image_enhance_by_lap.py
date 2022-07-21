@@ -6,6 +6,7 @@ from codes.model.build import BUILD_MODEL_REGISTRY
 from codes.network.build import build_generator
 from codes.losses.gradient_penalty import compute_gradient_penalty
 from codes.network.lap_pyr.lap_pyramid import LapPyramidConv
+import logging
 
 
 @BUILD_MODEL_REGISTRY.register()
@@ -26,6 +27,13 @@ class LapGanModel(GanBaseModel):
             self.level = cfg.MODEL.NETWORK.LAP_PYRAMID.get('PYRAMID_LEVEL', self.level)
             self.train_level = cfg.MODEL.NETWORK.LAP_PYRAMID.get('TRAIN_LEVEL', self.train_level)
         assert self.train_level <= self.level, 'the train_level must be smaller level, but train_level {}, level {}'.format(self.train_level, self.level)
+
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('param: \nGAN_TYPE: {} \nLAMBDA_GP: {} \nDISCRIMINATOR_ITERS: {}\nDISCRIMINATOR_INIT_ITERS:{} \nPYRAMID_LEVEL: {}\nTRAIN_LEVEL: {}'.format(cfg.SOLVER.LOSS.get('GAN_TYPE', 'lsgan'),
+                                                                                                                                                                                               cfg.SOLVER.LOSS.LAMBDA.get('LAMBDA_GP', 100),
+                                                                                                                                                                                               self.net_d_iters,
+                                                                                                                                                                                               self.net_d_init_iters,
+                                                                                                                                                                                               self.level,
+                                                                                                                                                                                               self.train_level))
 
         self.pyramid = LapPyramidConv(self.level)
         return
