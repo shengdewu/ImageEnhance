@@ -104,22 +104,8 @@ class LaplacianPyramid(torch.nn.Module):
             layers = cfg.MODEL.NETWORK.LAP_PYRAMID.get('LAYERS', layers)
 
         logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}\nkernel_number: {}\nlayers: {}'.format(self.__class__, kernel_number, layers))
-        self.sub_net1 = UnetBackBone(kernel_number, layers)
-        self.sub_net2 = UnetBackBone(kernel_number, layers)
-        self.sub_net3 = UnetBackBone(kernel_number, layers)
-        self.sub_net4 = UnetBackBone(kernel_number, layers)
-        self.up1 = UpSample(3, 3)
-        self.up2 = UpSample(3, 3)
-        self.up3 = UpSample(3, 3)
+        self.sub_net = UnetBackBone(kernel_number, layers)
         return
 
     def forward(self, x):
-        y1_0 = self.sub_net1(x[-1])
-        y1_1 = self.up1(y1_0, x[-2].shape[2], x[-2].shape[3])
-        y2_0 = self.sub_net2(y1_1 + x[-2]) + y1_1
-        y2_1 = self.up2(y2_0, x[-3].shape[2], x[-3].shape[3])
-        y3_0 = self.sub_net3(y2_1 + x[-3]) + y2_1
-        y3_1 = self.up3(y3_0, x[-4].shape[2], x[-4].shape[3])
-        y4 = self.sub_net4(y3_1 + x[-4]) + y3_1
-        y = [y1_0, y2_0, y3_0, y4]
-        return y
+        return self.sub_net(x)
