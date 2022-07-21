@@ -64,9 +64,6 @@ class UnetBackBone(torch.nn.Module):
             setattr(self, 'down_block{}'.format(i), down_block)
             in_channel = in_channel * 2
 
-        self.bottle = ConvBlock(in_channel, in_channel * 2)
-        in_channel = in_channel * 2
-
         for i in range(layers-1, -1, -1):
             conv_block = ConvBlock(in_channel, in_channel // 2)
             setattr(self, 'conv_block{}'.format(i), conv_block)
@@ -80,18 +77,16 @@ class UnetBackBone(torch.nn.Module):
     def forward(self, x):
         head = self.head(x)
 
-        skip_layer = [None for i in range(self.layers)]
-        down_block = getattr(self, 'down_block{}'.format(0))
-        skip_layer[0] = down_block(head)
-        for i in range(1, self.layers-1):
-            down_block = getattr(self, 'down_block{}'.format(0))
-            skip_layer[i] = down_block(skip_layer[i-1])
+        skip_layer = [None for i in range(self.layers+1)]
+        skip_layer[0] = head
+        for i in range(0, self.layers):
+            down_block = getattr(self, 'down_block{}'.format(i))
+            skip_layer[i+1] = down_block(skip_layer[i])
 
-        out = self.bottle(skip_layer[self.layers-1])
-
-        for i in range(self.layers-1, 0, -1):
-            conv_block = getattr(self, 'conv_block{}'.format(self.layers - 1))
-            up_block = getattr(self, 'up_block{}'.format(self.layers - 1))
+        out = skip_layer[self.layers]
+        for i in range(self.layers-1, -1, -1):
+            conv_block = getattr(self, 'conv_block{}'.format(i))
+            up_block = getattr(self, 'up_block{}'.format(i))
             up_in = torch.cat([up_block(out, skip_layer[i].shape[2], skip_layer[i].shape[3]), skip_layer[i]], 1)
             out = conv_block(up_in)
 
