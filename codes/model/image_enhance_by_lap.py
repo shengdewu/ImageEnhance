@@ -20,10 +20,10 @@ class LapGanModel(GanBaseModel):
         self.net_d_iters = cfg.SOLVER.LOSS.get('DISCRIMINATOR_ITERS', 1)
         self.net_d_init_iters = cfg.SOLVER.LOSS.get('DISCRIMINATOR_INIT_ITERS', 0)
 
-        level = 3
+        self.level = 3
         if cfg.MODEL.NETWORK.get('LAP_PYRAMID', None) is not None:
-            level = cfg.MODEL.NETWORK.LAP_PYRAMID.get('PYRAMID_LEVEL', level)
-        self.pyramid = LapPyramidConv(level)
+            self.level = cfg.MODEL.NETWORK.LAP_PYRAMID.get('PYRAMID_LEVEL', self.level)
+        self.pyramid = LapPyramidConv(self.level)
         return
 
     def create_g_model(self, cfg) -> torch.nn.Module:
@@ -48,26 +48,35 @@ class LapGanModel(GanBaseModel):
         :return:
         """
         input_img = data['input'].to(self.device, non_blocking=True)
-        ref_img = data['ref'].to(self.device, non_blocking=True)
+        ref_img = data['expert'].to(self.device, non_blocking=True)
 
         input_lap, _ = self.pyramid_decom(input_img)
-        ref_lap, ref_gauss = self.pyramid_decom(ref_img)
-        input_recons = self.pyramid_recons(input_lap)
-        input_lap[-1] = ref_lap[-1]
-        input_ref_recons = self.pyramid_recons(input_lap)
-        import cv2, torchvision
-        import numpy as np
+        _, ref_gauss = self.pyramid_decom(ref_img)
 
-        def save(tensor, fp):
-            fmt = np.uint8
-            grid = torchvision.utils.make_grid(tensor)
-            # Add 0.5 after unnormalizing to [0, unnormalizing_value] to round to nearest integer
-            ndarr = grid.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu').numpy().astype(fmt)
-            cv2.imwrite(fp, ndarr[:, :, ::-1])
-        save(torch.cat((input_img, input_recons, input_ref_recons, ref_img), dim=0), 'pyr{}.jpg'.format(int(np.random.rand()*100)))
+        # input_recons = self.pyramid_recons(input_lap)
+        # input_lap[-1] = ref_lap[-1]
+        # input_ref_recons = self.pyramid_recons(input_lap)
 
-        ref_img = ref_gauss[-1].clone()
-        del ref_gauss
+        # import cv2, torchvision
+        # import numpy as np
+        # def save(tensor, fp):
+        #     fmt = np.uint8
+        #     grid = torchvision.utils.make_grid(tensor)
+        #     # Add 0.5 after unnormalizing to [0, unnormalizing_value] to round to nearest integer
+        #     ndarr = grid.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu').numpy().astype(fmt)
+        #     cv2.imwrite(fp, ndarr[:, :, ::-1])
+        # save(ref_gauss[0], 'pyr_0_{}.jpg'.format(int(np.random.rand()*100)))
+        # save(ref_gauss[1], 'pyr_1_{}.jpg'.format(int(np.random.rand() * 100)))
+        # save(ref_gauss[2], 'pyr_2_{}.jpg'.format(int(np.random.rand() * 100)))
+        # save(ref_gauss[3], 'pyr_3_{}.jpg'.format(int(np.random.rand() * 100)))
+        #
+        # save(input_lap[0], 'lab_0_{}.jpg'.format(int(np.random.rand()*100)))
+        # save(input_lap[1], 'lab_1_{}.jpg'.format(int(np.random.rand() * 100)))
+        # save(input_lap[2], 'lab_2_{}.jpg'.format(int(np.random.rand() * 100)))
+        # save(input_lap[3], 'lab_3_{}.jpg'.format(int(np.random.rand() * 100)))
+
+        # ref_img = ref_gauss[-1].clone()
+        # del ref_gauss
 
         loss_dict = dict()
         # optimize g
@@ -75,15 +84,17 @@ class LapGanModel(GanBaseModel):
             p.requires_grad = False
 
         self.g_optimizer.zero_grad()
-        fake = self.g_model(input_lap[-1])
+        fake = self.g_model(input_lap)
 
         l_g_total = torch.zeros(1).to(self.device)
         if epoch % self.net_d_iters == 0 and epoch > self.net_d_init_iters:
-            l_g_pix = self.pixel_loss(fake, input_img)
+            l_g_pix = self.pixel_loss(fake[0], input_lap[self.level - 0])
+            for i in range(1, len(ref_gauss)):
+                l_g_pix += self.pixel_loss(fake[i], input_lap[self.level - i])
             l_g_total += l_g_pix
             loss_dict['l_g_pix'] = l_g_pix.item()
 
-            fake_g = self.d_model(fake)
+            fake_g = self.d_model(fake[-1])
             l_g_gan = self.gan_loss(fake_g, True, is_disc=False)
             l_g_total += l_g_gan
             loss_dict['l_g_gan'] = l_g_gan.item()
@@ -96,17 +107,17 @@ class LapGanModel(GanBaseModel):
             p.requires_grad = True
 
         self.d_optimizer.zero_grad()
-        fake = self.g_model(input_img)
+        fake = self.g_model(input_lap)
         # real
         d_real = self.d_model(ref_img)
         l_d_real = self.gan_loss(d_real, True, is_disc=True)
         loss_dict['l_d_real'] = l_d_real.item()
         # fake
-        d_fake = self.d_model(fake)
+        d_fake = self.d_model(fake[-1])
         l_d_fake = self.gan_loss(d_fake, False, is_disc=True)
         loss_dict['l_d_fake'] = l_d_fake.item()
 
-        gp = compute_gradient_penalty(self.d_model, ref_img, fake, d_real.shape)
+        gp = compute_gradient_penalty(self.d_model, ref_img, fake[-1], d_real.shape)
         l_d_loss = l_d_real + l_d_fake + self.lambda_gp * gp
         l_d_loss.backward()
         self.d_optimizer.step()
@@ -116,7 +127,9 @@ class LapGanModel(GanBaseModel):
     def generator(self, data):
         input_data = data.to(self.device, non_blocking=True)
         input_lap, _ = self.pyramid_decom(input_data)
-        low_res = self.g_model(input_lap[-1])
-        input_lap[-1] = low_res
-        return self.pyramid_recons[input_lap]
+        # low_res = self.g_model(input_lap[-1])
+        # input_lap[-1] = low_res
+        # return self.pyramid_recons(input_lap)
+        y = self.g_model(input_lap)
+        return y[-1]
 
