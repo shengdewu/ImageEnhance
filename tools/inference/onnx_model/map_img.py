@@ -66,28 +66,26 @@ def map_rgb_onnx(img, r, g, b):
     return torch.clamp(img, 0, 1.0)
 
 
-def map_luma_onnx(img, gray, C, device='cuda'):
-        slope = Variable(torch.zeros((C.shape[0], C.shape[1] - 1))).to(img.device)
-        curve_steps = C.shape[1] - 1
+def map_luma_onnx(img, gray, C):
+    slope = Variable(torch.zeros((C.shape[0], C.shape[1] - 1))).to(img.device)
+    curve_steps = C.shape[1] - 1
 
-        '''
-        Compute the slope of the line segments
-        '''
-        for i in range(0, curve_steps):
-            slope[:, i] = C[:, i + 1] - C[:, i]
+    '''
+    Compute the slope of the line segments
+    '''
+    for i in range(0, curve_steps):
+        slope[:, i] = C[:, i + 1] - C[:, i]
 
-        '''
-        Use predicted line segments to compute scaling factors for the channel
-        '''
+    '''
+    Use predicted line segments to compute scaling factors for the channel
+    '''
 
-        new_img = img.clone()
-        batch_size = img.shape[0]
-        for batch in range(batch_size):
-            scale = torch.full(size=(gray.shape[2], gray.shape[3]), fill_value=C[batch, 0].data, device=device, dtype=gray.dtype)
-            for i in range(0, slope[batch].shape[0] - 1):
-                scale += slope[batch][i] * (gray[batch, 0, :, :] * curve_steps - i)
+    new_img = img.clone()
+    scale = torch.full(size=(gray.shape[0], gray.shape[1]), fill_value=C[0, 0].data, device=img.device, dtype=gray.dtype)
+    for i in range(0, slope[0].shape[0] - 1):
+        scale += slope[0][i] * (gray[:, :] * curve_steps - i)
 
-            new_img[batch, 0, :, :] = img[batch, 0, :, :] * scale
-            new_img[batch, 1, :, :] = img[batch, 1, :, :] * scale
-            new_img[batch, 2, :, :] = img[batch, 2, :, :] * scale
-        return torch.clamp(new_img, 0, 1)
+    new_img[0, :, :] = img[0, :, :] * scale
+    new_img[1, :, :] = img[1, :, :] * scale
+    new_img[2, :, :] = img[2, :, :] * scale
+    return torch.clamp(new_img, 0, 1)

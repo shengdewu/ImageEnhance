@@ -38,7 +38,7 @@ def execute_and_compare(dir_names, compare_names, compare_base_path=None, use_on
         out_path = os.path.join(out_root, dir_name)
         data_cfg.OUTPUT_DIR = out_path
         data_cfg.DATALOADER.DATA_PATH = os.path.join(data_path, dir_name)
-        print('inference {}'.format(data_cfg.DATALOADER.DATA_PATH))
+        print('inference {} use {}'.format(data_cfg.DATALOADER.DATA_PATH, inference_tool.__class__))
         if use_onnx:
             onnx_tool.py_onnx_run(cfg.INPUT.DOWN_FACTOR, data_cfg.DATALOADER.DATA_PATH, out_path, inference_tool, skip=True)
         else:

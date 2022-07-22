@@ -13,6 +13,7 @@ from tools.inference.onnx_model import map_img
 import os
 import tqdm
 from codes.train.train_fn import save_image
+from codes.data.fn import rgb2luma
 
 
 def _create_curl_net(cfg):
@@ -79,7 +80,39 @@ def normalized(img):
     return img
 
 
-def py_onnx_run(down_factor, in_path, out_path, ort_session):
+def py_onnx_luma(ort_session, img_rgb, down_factor=1):
+    normalize_img = normalized(img_rgb)
+    gray_img = 0.299 * normalize_img[:, :, 0] + 0.587 * normalize_img[:, :, 1] + 0.114 * normalize_img[:, :, 2]
+    input_gray = gray_img
+    if down_factor > 1 and down_factor % 2 == 0:
+        h, w = gray_img.shape
+        h = (h // down_factor) * down_factor
+        w = (w // down_factor) * down_factor
+        input_gray = gray_img[:h, :w]
+        input_gray = cv2.resize(input_gray, (w // down_factor, h // down_factor), cv2.INTER_CUBIC)
+
+    outputs = ort_session.run(None, {'gray_img': input_gray[np.newaxis, np.newaxis, :]})
+    torch_img = torch.from_numpy(normalize_img.transpose((2, 0, 1)))
+    enhance_img = map_img.map_luma_onnx(torch_img, torch.from_numpy(gray_img), torch.from_numpy(outputs[0]))
+    return torch.cat((torch_img, enhance_img), -1)
+
+
+def py_onnx_rgb(ort_session, img_rgb, down_factor=1):
+    normalize_img = normalized(img_rgb)
+    img_input = normalize_img.clone()
+    if down_factor > 1 and down_factor % 2 == 0:
+        h, w, c = normalize_img.shape
+        h = (h // down_factor) * down_factor
+        w = (w // down_factor) * down_factor
+        img_input = normalize_img[:h, :w, :]
+        img_input = cv2.resize(img_input, (w // down_factor, h // down_factor), cv2.INTER_CUBIC)
+    outputs = ort_session.run(None, {'input_img': img_input.transpose((2, 0, 1))[np.newaxis, :]})
+    torch_img = torch.from_numpy(normalize_img.transpose((2, 0, 1)))
+    enhance_img = map_img.map_rgb_onnx(torch_img, torch.from_numpy(outputs[0]), torch.from_numpy(outputs[1]), torch.from_numpy(outputs[2]))
+    return torch.cat((torch_img, enhance_img), -1)
+
+
+def py_onnx_run(down_factor, in_path, out_path, ort_session, skip=True):
 
     os.makedirs(out_path, exist_ok=True)
 
@@ -88,25 +121,14 @@ def py_onnx_run(down_factor, in_path, out_path, ort_session):
 
     for name in tqdm.tqdm(os.listdir(in_path)):
         img_name = '{}.jpg'.format(name[:name.rfind('.tif')])
-        if os.path.exists(os.path.join(out_path, img_name)):
+        if skip and os.path.exists(os.path.join(out_path, img_name)):
             continue
         img_rgb = cv2.cvtColor(cv2.imread(os.path.join(in_path, name), -1), cv2.COLOR_BGR2RGB)
-        img_input = normalized(img_rgb)
-        if down_factor > 1 and down_factor % 2 == 0:
-            h, w, c = img_input.shape
-            h = (h // down_factor) * down_factor
-            w = (w // down_factor) * down_factor
-            img_input = img_input[:h, :w, :]
-            img_input = cv2.resize(img_input, (w // down_factor, h // down_factor), cv2.INTER_CUBIC)
-        stime = time.time()
-        outputs = ort_session.run(None, {'input_img': img_input.transpose((2, 0, 1))[np.newaxis, :]})
-        cal_cure_time.append(time.time()-stime)
-        torch_img = torch.from_numpy(normalized(img_rgb).transpose((2, 0, 1)))
 
         stime = time.time()
-        enhance_img = map_img.map_rgb_onnx(torch_img, torch.from_numpy(outputs[0]), torch.from_numpy(outputs[1]), torch.from_numpy(outputs[2]))
+        enhance_img = py_onnx_luma(ort_session, img_rgb, down_factor)
         app_cure_time.append(time.time()-stime)
-        save_image(torch.cat((torch_img, enhance_img), -1), os.path.join(out_path, img_name), nrow=1, normalize=False)
+        save_image(enhance_img, os.path.join(out_path, img_name), nrow=1, normalize=False)
 
     if len(cal_cure_time) > 0:
         print('total {} / cal_cure:{}-apply_cure:{}'.format(len(cal_cure_time), sum(cal_cure_time)*1.0/len(cal_cure_time), sum(app_cure_time)*1.0/len(app_cure_time)))
