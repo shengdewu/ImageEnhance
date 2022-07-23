@@ -75,16 +75,17 @@ class ColorConstancyLoss(torch.nn.Module):
 
 
 class IlluminationSmoothnessLoss(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, tv_weight):
         super(IlluminationSmoothnessLoss, self).__init__()
+        self.tv_weight = tv_weight
         return
 
     def forward(self, x):
         b, c, h, w = x.size()
-        delta_x = torch.pow(x[:, :, :, 1:] - x[:, :, :, :w-1], 2).sum()
-        delta_y = torch.pow(x[:, :, 1:, :] - x[:, :, :h-1, :], 2).sum()
-        y_size = (h - 1) * w
-        x_size = (w - 1) * h
-        return 2 * (delta_x / x_size + delta_y / y_size) / b
+        w_tv = torch.pow(x[:, :, :, 1:] - x[:, :, :, :w-1], 2).sum()
+        h_tv = torch.pow(x[:, :, 1:, :] - x[:, :, :h-1, :], 2).sum()
+        count_h = (h - 1) * w
+        count_w = (w - 1) * h
+        return self.tv_weight * 2 * (h_tv / count_h + w_tv / count_w) / b
 
 
