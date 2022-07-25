@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from engine.checkpoint.functional import get_model_state_dict, load_model_state_dict
 
-from trilinear.TrilinearInterpolationModel import TrilinearInterpolationModel
+from ..trilinear.trilinear import TrilinearInterpolationModel
 
 
 def generate_identity_lut(dim):
@@ -24,7 +24,7 @@ class Generator3DLUT(torch.nn.Module):
         if is_zero:
             parameter = torch.zeros(3, dim, dim, dim, dtype=torch.float)
         else:
-            parameter = torch.from_numpy(generate_identity_lut(dim)).requires_grad_(True)
+            parameter = torch.from_numpy(generate_identity_lut(dim))
 
         self._lut = torch.nn.Parameter(parameter)
         self.trilinear_interpolation = TrilinearInterpolationModel()

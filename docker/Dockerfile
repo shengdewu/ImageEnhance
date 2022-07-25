@@ -6,5 +6,7 @@ COPY whl   /home/enhance/whl
 
 RUN pip3 install einops && pip3 install /home/enhance/whl/*.whl
 
+RUN cd /home/enhance/codes/network/lut/trilinear/cpp && rm -rf build && rm -rf trilinear.* && sh setup.torch1.x.sh
+
 WORKDIR /home/enhance
 ENTRYPOINT ["python3", "train_tool.py"]

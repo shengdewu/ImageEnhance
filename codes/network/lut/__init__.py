@@ -1,1 +1,1 @@
-from lut import Generator3DLUT
+from .lut import Generator3DLUT
