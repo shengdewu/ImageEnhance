@@ -4,6 +4,7 @@
 #include <iostream>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/dnn.h>
 #include "curve_mnn.hpp"
 
 
@@ -58,7 +59,8 @@ void CurveMNN::fill_input_data(const cv::Mat &in_img) {
 
     input_tensor = ort_->mnn_interpreter->getSessionInput(ort_->mnn_session, nullptr);
     const MNN::Tensor* in_tensor = new MNN::Tensor(input_tensor, input_tensor->getDimensionType());
-    memccpy(in_tensor->host<float>(), reinterpret_cast<float*>(const_cast<unsigned char*>(in_img.data)), 0, 1*d_c*d_h*d_w);
+    auto img_nchw = cv::dnn::blobFromImage(in_img);
+    memccpy(in_tensor->host<float>(), reinterpret_cast<float*>(const_cast<unsigned char*>(img_nchw.data)), 0, 1*d_c*d_h*d_w);
     input_tensor->copyFromHostTensor(in_tensor);
     delete in_tensor;
 }
