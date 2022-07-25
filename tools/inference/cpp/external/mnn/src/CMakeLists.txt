@@ -5,7 +5,7 @@ set(PROJECT external_exec)
 project(${PROJECT} VERSION 1.0)
 
 #public lib path
-set(OPENCV_PATH /usr/local/opencv_op)
+set(OPENCV_PATH /usr/local/opencv)
 set(MNN_PATH /usr/local/mnn)
 
 #add compile option

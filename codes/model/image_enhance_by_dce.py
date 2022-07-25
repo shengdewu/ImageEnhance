@@ -2,7 +2,6 @@ import torch
 from codes.model.build import BUILD_MODEL_REGISTRY
 from engine.loss.vgg_loss import PerceptualLoss
 from .image_enhance_by_zero_dce import ZeroDceModel
-from codes.losses.dce_loss import *
 
 
 @BUILD_MODEL_REGISTRY.register()

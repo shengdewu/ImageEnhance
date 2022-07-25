@@ -1,6 +1,6 @@
 import torch
-# from .py.trilinear_function import TrilinearInterpolationFunction
-from .cpp.trilinear_function import TrilinearInterpolationFunction
+from .py.trilinear_function import TrilinearInterpolationFunction
+# from .cpp.trilinear_function import TrilinearInterpolationFunction
 
 
 class TrilinearInterpolationModel(torch.nn.Module):

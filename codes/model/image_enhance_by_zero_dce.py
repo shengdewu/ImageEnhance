@@ -1,7 +1,8 @@
 import torch
 from codes.model.build import BUILD_MODEL_REGISTRY
 from .image_enhance_pair_base import PairBaseModel
-from codes.losses.dce_loss import *
+from codes.network.dce.dce_loss import *
+import logging
 
 
 @BUILD_MODEL_REGISTRY.register()
@@ -25,6 +26,16 @@ class ZeroDceModel(PairBaseModel):
         self.lambda_exp = cfg.SOLVER.LOSS.LAMBDA_EXP # 10
         self.lambda_col = cfg.SOLVER.LOSS.LAMBDA_COL # 5
         self.lambda_tv = cfg.SOLVER.LOSS.LAMBDA_TV  #1600
+
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('params:\nexposure_path_size {}\nexposure_exposedness {}\n'
+                                                    'LAMBDA_SPA {}\nLAMBDA_EXP {}\nLAMBDA_COL {}\nLAMBDA_TV {}'.format(exposure_path_size,
+                                                                                                                       exposure_exposedness,
+                                                                                                                       self.lambda_spa,
+                                                                                                                       self.lambda_exp,
+                                                                                                                       self.lambda_col,
+                                                                                                                       self.lambda_tv))
+
+
         return
 
     def run_step(self, data, *, epoch=None, **kwargs):
