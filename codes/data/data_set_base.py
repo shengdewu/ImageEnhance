@@ -2,6 +2,7 @@ import os
 import numpy as np
 from torch.utils.data import Dataset
 from codes.data.fn.data_set_fn import search_files
+from .fn.resize_fn import MaxEdgeResize
 
 
 class ImageDataSet(Dataset):
@@ -25,6 +26,10 @@ class ImageDataSet(Dataset):
             index = [i for i in range(len(self.test_input_files))]
             index = np.random.choice(index, test_max_nums, replace=False)
             self.test_input_files = [self.test_input_files[i] for i in index]
+
+        self.max_resize = None
+        if cfg.INPUT.get('MAX_RESIZE', 0) > 0:
+            self.max_resize = MaxEdgeResize(cfg.INPUT.MAX_RESIZE)
 
         return
 

@@ -26,7 +26,10 @@ class ImageDataSetTuUnpaired(ImageDataSet):
             img_expt_a = cv2.cvtColor(cv2.imread(input_file[1], -1), cv2.COLOR_BGR2RGB)
             seed = random.randint(1, len(self.set_label_files))
             img_expt_b = cv2.cvtColor(cv2.imread(self.set_label_files[(index + seed) % len(self.set_label_files)][1], -1), cv2.COLOR_BGR2RGB)
-
+            if self.max_resize is not None:
+                img_input = self.max_resize(img_input)
+                img_expt_a = self.max_resize(img_expt_a)
+                img_expt_b = self.max_resize(img_expt_b)
             # w = min(img_input.shape[1], img_expt_a.shape[1], img_expt_b.shape[1])
             # h = min(img_input.shape[0], img_expt_a.shape[0], img_expt_b.shape[1])
             #

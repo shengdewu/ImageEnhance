@@ -43,6 +43,9 @@ class ImageDatasetPaired(ImageDataSet):
             img_name = os.path.split(input_file[0])[-1]
             img_input = cv2.cvtColor(cv2.imread(input_file[0], -1), cv2.COLOR_BGR2RGB)
             img_expert = cv2.cvtColor(cv2.imread(input_file[1], -1), cv2.COLOR_BGR2RGB)
+            if self.max_resize is not None:
+                img_input = self.max_resize(img_input)
+                img_expert = self.max_resize(img_expert)
             if np.random.random() < self.flip_ration:
                 img_input = tif_opt.vflip(img_input)
                 img_expert = tif_opt.vflip(img_expert)
