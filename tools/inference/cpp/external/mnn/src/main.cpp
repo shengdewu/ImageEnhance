@@ -78,14 +78,14 @@ int main(int argc, char** argv){
     std::string mnn_path = "/mnt/sda1/wokspace/ImageEnhance/tools/inference/cpp/model/luma_11xy.mnn";
 
     CurveMNN auto_exposure(mnn_path);
-    
+
     std::vector<std::string> img_path;
     img_path.emplace_back("/mnt/sdb/data.set/xintu.data/转档测评/20210510转档评测_tif_3000x2000/婚纱/鲜艳纯底/婚纱CS (50)/IMG_6929.tif");
     img_path.emplace_back("/mnt/sda1/wokspace/ImageEnhance/test_miscellaneous/debug.raw.jpg");
     img_path.emplace_back("/mnt/sdb/data.set/xintu.data/转档测评/20210510转档评测_tif/儿童/01浅色实景/儿童SJ (31)/161082062385739907252.tif");
     img_path.emplace_back("/mnt/sdb/data.set/xintu.data/转档测评/20210510转档评测_tif/儿童/01浅色实景/儿童SJ (31)/16108206392879900290.tif");
     img_path.emplace_back("/mnt/sdb/data.set/xintu.data/转档测评/20210510转档评测_tif_3000x2000/婚纱/鲜艳纯底/婚纱CS (50)/IMG_6929.tif");
-    
+
     for(auto & i : img_path){
 
         cv::Mat img_bgr = cv::imread(i, cv::ImreadModes::IMREAD_COLOR);

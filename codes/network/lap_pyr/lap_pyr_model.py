@@ -28,7 +28,7 @@ class ConvBlock(torch.nn.Module):
 
 
 class UpSample(torch.nn.Module):
-    def __init__(self, in_channel, out_channel, bilinear=False):
+    def __init__(self, in_channel, out_channel, bilinear=True):
         super().__init__()
         if bilinear:
             self.up = torch.nn.Sequential(

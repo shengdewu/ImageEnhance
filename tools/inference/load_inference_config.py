@@ -43,7 +43,7 @@ def merge_config(use_model_config=False):
         hcfg = CfgNode().load_cfg(f)
         f.close()
 
-        hcfg = convert_old(hcfg)
+        #hcfg = convert_old(hcfg)
 
         vgg_path = ''
         if cfg.MODEL.get('VGG', None) is not None:

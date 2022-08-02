@@ -2,6 +2,7 @@ from setuptools import setup
 import torch
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension, CppExtension
 
+print(torch.__version__)
 if torch.cuda.is_available():
     print('Including CUDA code.')
     setup(

@@ -30,6 +30,7 @@ class InferenceNoneGt(Inference):
         if skip:
             skin_name = [name for name in os.listdir(output) if name.lower().endswith(img_format)]
 
+        self.model.disable_train()
         for index in tqdm.tqdm(range(len(test_dataset))):
             data = test_dataset.get_item(index, skin_name, special_name=special_name, img_format=img_format)
             if data['input'] is None:
@@ -41,7 +42,7 @@ class InferenceNoneGt(Inference):
             if isinstance(enhance_img, list) or isinstance(enhance_img, tuple):
                 enhance_img = enhance_img[0]
 
-            img_sample = torch.cat((real.data, enhance_img.data), -1)
+            img_sample = torch.cat((real, enhance_img), -1)
 
             save_image(img_sample, '{}/{}'.format(output, data['name']), unnormalizing_value=self.unnormalizing_value, nrow=1, normalize=False)
         return
