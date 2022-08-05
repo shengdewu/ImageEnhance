@@ -3,7 +3,7 @@ import itertools
 import torch.nn.functional as torch_func
 from engine.checkpoint.functional import get_model_state_dict, load_model_state_dict
 from .generator.generator import Generator3DLUT, Generator3DLUTSupplement
-from .classifier.classifier import ClassifierResnet
+from .classifier.classifier import ClassifierResnet, Classifier
 from codes.network.build import BUILD_NETWORK_REGISTRY
 import logging
 
@@ -35,7 +35,8 @@ class Gen3DLutModel(torch.nn.Module):
 
         self.lut0 = Generator3DLUT(dim=dims, device=self.device)
         self.lut1 = Generator3DLUTSupplement(dim=dims, nums=nums, device=self.device, is_zero=is_zero)
-        self.classifier = ClassifierResnet(num_classes=nums_class, class_arch=class_arch, use_in=use_in, device=self.device)
+        # self.classifier = ClassifierResnet(num_classes=nums_class, class_arch=class_arch, use_in=use_in, device=self.device)
+        self.classifier = Classifier(num_classes=nums_class, use_in=use_in, device=self.device)
         self.dims = dims
         return
 
