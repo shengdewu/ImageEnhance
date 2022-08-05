@@ -10,25 +10,36 @@ __all__ = [
 
 
 class ConvBlock(torch.nn.Module):
-    def __init__(self, in_channel, out_channel):
+    def __init__(self, in_channel, out_channel, use_in=False):
         super(ConvBlock, self).__init__()
         self.conv1 = torch.nn.Conv2d(in_channel, out_channel, 3, 1, 1)
+        self.bn1 = None
+        if use_in:
+            self.bn1 = torch.nn.InstanceNorm2d(out_channel)
         self.ac1 = torch.nn.LeakyReLU(inplace=True)
 
         self.conv2 = torch.nn.Conv2d(out_channel, out_channel, 3, 1, 1)
+        self.bn2 = None
+        if use_in:
+            self.bn2 = torch.nn.InstanceNorm2d(out_channel)
         self.ac2 = torch.nn.LeakyReLU(inplace=True)
         return
 
     def forward(self, x):
         x = self.conv1(x)
+        if self.bn1 is not None:
+            x = self.bn1(x)
         x = self.ac1(x)
+
         x = self.conv2(x)
+        if self.bn2 is not None:
+            x = self.bn2(x)
         x = self.ac2(x)
         return x
 
 
 class UpSample(torch.nn.Module):
-    def __init__(self, in_channel, out_channel, bilinear=True):
+    def __init__(self, in_channel, out_channel, bilinear=True, use_in=False):
         super().__init__()
         if bilinear:
             self.up = torch.nn.Sequential(
@@ -37,11 +48,18 @@ class UpSample(torch.nn.Module):
             )
         else:
             self.up = torch.nn.ConvTranspose2d(in_channel, out_channel, kernel_size=2, stride=2)
+
+        self.bn = None
+        if use_in:
+            self.bn = torch.nn.InstanceNorm2d(out_channel)
+
         self.ac = torch.nn.LeakyReLU(inplace=True)
         return
 
     def forward(self, x, up_h, up_w):
         x = self.up(x)
+        if self.bn is not None:
+            x = self.bn(x)
         diff_h = up_h - x.shape[2]
         diff_w = up_w - x.shape[3]
         x = self.ac(x)
@@ -50,28 +68,38 @@ class UpSample(torch.nn.Module):
 
 
 class UnetBackBone(torch.nn.Module):
-    def __init__(self, kernel_number=24, layers=4):
+    def __init__(self, kernel_number=24, layers=4, use_in=False, max_channel=512, activation=None):
         super(UnetBackBone, self).__init__()
-        self.max_pool = torch.nn.MaxPool2d(2)
         self.layers = layers
 
         self.head = ConvBlock(3, kernel_number)
 
         in_channel = kernel_number
+        channel_tuple = list()
         for i in range(layers):
+            block_use_in = use_in
+            if i >= layers-1:
+                block_use_in = False
+
+            in_channel = in_channel
+            out_channel = min(in_channel * 2, max_channel)
+            channel_tuple.append((in_channel, out_channel))
+
             down_block = torch.nn.Sequential(torch.nn.MaxPool2d(2),
-                                             ConvBlock(in_channel, in_channel*2))
+                                             ConvBlock(in_channel, out_channel, block_use_in))
             setattr(self, 'down_block{}'.format(i), down_block)
-            in_channel = in_channel * 2
+            in_channel = min(in_channel * 2, max_channel)
 
         for i in range(layers-1, -1, -1):
-            conv_block = ConvBlock(in_channel, in_channel // 2)
+            out_channel, in_channel = channel_tuple[i]
+            conv_block = ConvBlock(out_channel*2, out_channel, use_in)
             setattr(self, 'conv_block{}'.format(i), conv_block)
-            up_block = UpSample(in_channel, in_channel // 2)
+            up_block = UpSample(in_channel, out_channel, use_in=use_in)
             setattr(self, 'up_block{}'.format(i), up_block)
-            in_channel = in_channel // 2
 
+        in_channel, _ = channel_tuple[0]
         self.final_conv = torch.nn.Conv2d(in_channel, 3, 1, 1, 0)
+        self.activate = activation
         return
 
     def forward(self, x):
@@ -90,6 +118,8 @@ class UnetBackBone(torch.nn.Module):
             up_in = torch.cat([up_block(out, skip_layer[i].shape[2], skip_layer[i].shape[3]), skip_layer[i]], 1)
             out = conv_block(up_in)
 
+        if self.activate is not None:
+            return self.activate(self.final_conv(out))
         return self.final_conv(out)
 
 
@@ -99,12 +129,30 @@ class LaplacianPyramid(torch.nn.Module):
         super(LaplacianPyramid, self).__init__()
         kernel_number = 24
         layers = 4
+        use_in = False
+        max_channel = 512
+        activation = None
         if cfg.MODEL.NETWORK.get('LAP_PYRAMID', None) is not None:
             kernel_number = cfg.MODEL.NETWORK.LAP_PYRAMID.get('KERNEL_NUMBER', kernel_number)
             layers = cfg.MODEL.NETWORK.LAP_PYRAMID.get('LAYERS', layers)
+            use_in = cfg.MODEL.NETWORK.LAP_PYRAMID.get('USE_IN', use_in)
+            max_channel = cfg.MODEL.NETWORK.LAP_PYRAMID.get('MAX_CHANNEL', max_channel)
+            activation = cfg.MODEL.NETWORK.LAP_PYRAMID.get('ACTIVATE', activation)
 
-        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}\nkernel_number: {}\nlayers: {}'.format(self.__class__, kernel_number, layers))
-        self.sub_net = UnetBackBone(kernel_number, layers)
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}\nkernel_number: {}\nlayers: {}\n'
+                                                    'use_in: {}\nmax_channel: {}\nactivate: {}'.format(self.__class__, kernel_number, layers, use_in, max_channel, activation))
+
+        def get_activate(_type):
+            if _type == 'relu':
+                return torch.nn.ReLU()
+            elif _type == 'tanh':
+                return torch.nn.Tanh()
+            elif _type == 'sigmod':
+                return torch.nn.Sigmoid()
+            else:
+                return None
+
+        self.sub_net = UnetBackBone(kernel_number, layers, use_in, max_channel=max_channel, activation=get_activate(activation))
         return
 
     def forward(self, x):
