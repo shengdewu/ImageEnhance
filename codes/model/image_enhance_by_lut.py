@@ -7,6 +7,7 @@ from codes.network.lut.loss.tv import TV3D
 import logging
 import copy
 from engine.comm import TORCH_VERSION
+from engine.loss.vgg_loss import PerceptualLoss
 
 
 @BUILD_MODEL_REGISTRY.register()
@@ -18,7 +19,9 @@ class LutModel(PairBaseModel):
         self.lambda_smooth = cfg.SOLVER.LOSS.LAMBDA.LAMBDA_SMOOTH
         self.lambda_monotonicity = cfg.SOLVER.LOSS.LAMBDA.LAMBDA_MONOTONICITY
         self.lambda_pixel = cfg.SOLVER.LOSS.LAMBDA.LAMBDA_PIXEL
+        self.lambda_perceptual = cfg.SOLVER.LOSS.LAMBDA.LAMBDA_PERCEPTUAL
 
+        self.criterion_perceptual = PerceptualLoss(cfg.MODEL.VGG.LAYER, device=self.device, path=cfg.MODEL.VGG.PATH)
         self.criterion_pixel_wise = torch.nn.MSELoss().to(self.device)
         self.tv3 = TV3D(cfg.MODEL.NETWORK.LUT.DIMS, cfg.MODEL.DEVICE)
 
@@ -38,10 +41,11 @@ class LutModel(PairBaseModel):
         device_gt = data['expert'].to(self.device, non_blocking=True)
 
         loss_pixel = self.criterion_pixel_wise(enhance_img, device_gt)
+        loss_perceptual = self.criterion_perceptual(enhance_img, device_gt)
 
         tv_cons, mn_cons = self.g_model.calc_tv(self.tv3)
 
-        total_loss = self.lambda_pixel * loss_pixel + self.lambda_smooth * tv_cons + self.lambda_class_smooth * weights_norm + self.lambda_monotonicity * mn_cons
+        total_loss = self.lambda_pixel * loss_pixel + self.lambda_smooth * tv_cons + self.lambda_class_smooth * weights_norm + self.lambda_monotonicity * mn_cons + self.lambda_perceptual * loss_perceptual
 
         psnr_avg = 10 * math.log10(1 / loss_pixel.item())
 
@@ -53,7 +57,8 @@ class LutModel(PairBaseModel):
                 'mse_avg': loss_pixel.item(),
                 'tv_cons': tv_cons.item(),
                 'weights_norm': weights_norm.item(),
-                'mn_cons': mn_cons.item()}
+                'mn_cons': mn_cons.item(),
+                'loss_perceptual': loss_perceptual.item()}
 
     def generator(self, input_data):
         return self.g_model(input_data.to(self.device, non_blocking=True))
