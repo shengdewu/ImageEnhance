@@ -59,7 +59,7 @@ def execute_and_compare(dir_names, compare_names, compare_base_path=None, use_on
                 out_names = [bp.split('/')[-1] for bp in compare_base_path] + out_names
             else:
                 base_path = os.path.join(compare_base_path, dir_name)
-                out_names.index(0, compare_base_path.split('/')[-1])
+                out_names.insert(0, compare_base_path.split('/')[-1])
         else:
             base_path = os.path.join(compare_root, compare_names[0], dir_name)
             compare_paths = [os.path.join(compare_root, name, dir_name) for name in compare_names[1:]]
