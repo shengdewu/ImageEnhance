@@ -47,15 +47,24 @@ def execute_and_compare(dir_names, compare_names, compare_base_path=None, use_on
         if len(compare_names) == 0:
             continue
 
-        if compare_base_path is not None and len(compare_base_path) > 0:
-            base_path = os.path.join(compare_base_path, dir_name)
-            # convert2jpg(base_path)
-            compare_paths = [os.path.join(compare_root, name, dir_name) for name in compare_names]
+        out_names = compare_names.copy()
+        if compare_base_path is not None:
+
+            compare_paths = [os.path.join(compare_root, name, dir_name) for name in out_names]
+
+            if isinstance(compare_base_path, list) or isinstance(compare_base_path, tuple):
+                base_paths = [os.path.join(bp, dir_name) for bp in compare_base_path]
+                base_path = base_paths[0]
+                compare_paths = base_paths[1:] + compare_paths
+                out_names = [bp.split('/')[-1] for bp in compare_base_path] + out_names
+            else:
+                base_path = os.path.join(compare_base_path, dir_name)
+                out_names.index(0, compare_base_path.split('/')[-1])
         else:
             base_path = os.path.join(compare_root, compare_names[0], dir_name)
             compare_paths = [os.path.join(compare_root, name, dir_name) for name in compare_names[1:]]
 
-        out_path = os.path.join(compare_root, 'compare-{}'.format('-'.join(compare_names)), save_dir_name)
+        out_path = os.path.join(compare_root, 'compare-{}'.format('-'.join(out_names)), save_dir_name)
         special_name = [name for name in os.listdir(base_path) if name.lower().endswith('jpg')]
         if len(special_name) == 0:
             print('{} no item'.format(base_path))
