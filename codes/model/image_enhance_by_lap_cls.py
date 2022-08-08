@@ -29,8 +29,9 @@ class LapModel(PairBaseModel):
             self.train_level = cfg.MODEL.NETWORK.LAP_PYRAMID.get('TRAIN_LEVEL', self.train_level)
         assert self.train_level <= self.level, 'the train_level must be smaller level, but train_level {}, level {}'.format(self.train_level, self.level)
 
-        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('param: \nVGG.LAYER: {} \nVGG.PATH: {} \nLAMBDA_SSIM:{} '
-                                                    '\nLAMBDA_VGG: {}\nLAMBDA_PIXEL: {}\n PYRAMID_LEVEL'.format(cfg.MODEL.VGG.LAYER,
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('param: \nVGG.LAYER: {} \nVGG.PATH: {} '
+                                                    '\nLAMBDA_SSIM:{} \nLAMBDA_VGG: {}'
+                                                    '\nLAMBDA_PIXEL: {}\nTRAIN_LEVEL: {}\nPYRAMID_LEVEL {}'.format(cfg.MODEL.VGG.LAYER,
                                                                                                                 cfg.MODEL.VGG.PATH,
                                                                                                                 self.lambda_ssim,
                                                                                                                 self.lambda_vgg,
