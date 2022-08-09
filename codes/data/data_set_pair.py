@@ -75,4 +75,7 @@ class ImageDatasetPaired(ImageDataSet):
             if self.color_jitter_train:
                 img_expert = self.train_gt_aug(img_expert)
 
+        if self.mean is not None and self.std is not None:
+            img_expert = (img_expert - self.mean) / self.std
+            img_input = (img_input - self.mean) / self.std
         return {'A_input': img_input, 'A_exptC': img_expert, 'name': img_name}

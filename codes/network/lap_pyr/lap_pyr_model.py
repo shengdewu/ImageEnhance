@@ -131,28 +131,20 @@ class LaplacianPyramid(torch.nn.Module):
         layers = 4
         use_in = False
         max_channel = 512
-        activation = None
         if cfg.MODEL.NETWORK.get('LAP_PYRAMID', None) is not None:
             kernel_number = cfg.MODEL.NETWORK.LAP_PYRAMID.get('KERNEL_NUMBER', kernel_number)
             layers = cfg.MODEL.NETWORK.LAP_PYRAMID.get('LAYERS', layers)
             use_in = cfg.MODEL.NETWORK.LAP_PYRAMID.get('USE_IN', use_in)
             max_channel = cfg.MODEL.NETWORK.LAP_PYRAMID.get('MAX_CHANNEL', max_channel)
-            activation = cfg.MODEL.NETWORK.LAP_PYRAMID.get('ACTIVATE', activation)
+
+        active = None
+        if cfg.INPUT.get('DATA_MEAN', None) is not None and cfg.INPUT.get('DATA_STD', None) is not None:
+            active = torch.nn.Tanh()
 
         logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}\nkernel_number: {}\nlayers: {}\n'
-                                                    'use_in: {}\nmax_channel: {}\nactivate: {}'.format(self.__class__, kernel_number, layers, use_in, max_channel, activation))
+                                                    'use_in: {}\nmax_channel: {}\nACTIVATE: {}'.format(self.__class__, kernel_number, layers, use_in, max_channel, active))
 
-        def get_activate(_type):
-            if _type == 'relu':
-                return torch.nn.ReLU()
-            elif _type == 'tanh':
-                return torch.nn.Tanh()
-            elif _type == 'sigmod':
-                return torch.nn.Sigmoid()
-            else:
-                return None
-
-        self.sub_net = UnetBackBone(kernel_number, layers, use_in, max_channel=max_channel, activation=get_activate(activation))
+        self.sub_net = UnetBackBone(kernel_number, layers, use_in, max_channel=max_channel, activation=active)
         return
 
     def forward(self, x):

@@ -41,6 +41,10 @@ class EnhanceTrainer(BaseTrainer):
 
         self.total_data_per_epoch = len(train_dataset) / cfg.SOLVER.TRAIN_PER_BATCH
         self.iter_train_loader = iter(self.data_loader)
+
+        self.mean = cfg.INPUT.get('DATA_MEAN', None)
+        self.std = cfg.INPUT.get('DATA_STD', None)
+
         logging.getLogger(__name__).info('ready for training : there are {} data in one epoch and actually trained for {} epoch'.format(self.total_data_per_epoch, self.max_iter / self.total_data_per_epoch))
         return
 
@@ -48,25 +52,25 @@ class EnhanceTrainer(BaseTrainer):
         return build_model(cfg)
 
     def loop(self):
-        psnr = train_fn.calculate_psnr(self.model, self.test_data_loader, self.device, EnhanceTrainer.criterion_pixel_wise)
+        psnr = train_fn.calculate_psnr(self.model, self.test_data_loader, self.device, EnhanceTrainer.criterion_pixel_wise, mean=self.mean, std=self.std)
         logging.getLogger(__name__).info('before train psnr = {}'.format(psnr))
 
-        self.model.enable_train()
+        # self.model.enable_train()
+        #
+        # for epoch in range(self.start_iter, self.max_iter):
+        #     data = next(self.iter_train_loader)
+        #
+        #     loss_dict = self.model(data, epoch=epoch)
+        #
+        #     self.checkpoint.save(self.model, epoch)
+        #     self.run_after(epoch, loss_dict)
+        #
+        # if self.start_iter < self.max_iter:
+        #     self.checkpoint.save(self.model, self.max_iter)
 
-        for epoch in range(self.start_iter, self.max_iter):
-            data = next(self.iter_train_loader)
-
-            loss_dict = self.model(data, epoch=epoch)
-
-            self.checkpoint.save(self.model, epoch)
-            self.run_after(epoch, loss_dict)
-
-        if self.start_iter < self.max_iter:
-            self.checkpoint.save(self.model, self.max_iter)
-
-        psnr = train_fn.calculate_psnr(self.model, self.test_data_loader, self.device, EnhanceTrainer.criterion_pixel_wise)
+        psnr = train_fn.calculate_psnr(self.model, self.test_data_loader, self.device, EnhanceTrainer.criterion_pixel_wise, mean=self.mean, std=self.std)
         logging.getLogger(__name__).info('after train psnr = {}'.format(psnr))
-        train_fn.visualize_result(self.model, self.test_data_loader, self.device, self.output, EnhanceTrainer.criterion_pixel_wise)
+        train_fn.visualize_result(self.model, self.test_data_loader, self.device, self.output, EnhanceTrainer.criterion_pixel_wise, mean=self.mean, std=self.std)
         return
 
     def run_after(self, epoch, loss_dict):

@@ -6,7 +6,7 @@ import torchvision
 
 
 @torch.no_grad()
-def calculate_psnr(trainer, dataloader, device, criterion_pixel_wise, unnormalizing_value=255):
+def calculate_psnr(trainer, dataloader, device, criterion_pixel_wise, unnormalizing_value=255, mean=None, std=None):
     trainer.disable_train()
     avg_psnr = 0
     for i, batch in enumerate(dataloader):
@@ -15,6 +15,11 @@ def calculate_psnr(trainer, dataloader, device, criterion_pixel_wise, unnormaliz
         expert_fake = trainer.generator(img_input)
         if isinstance(expert_fake, list) or isinstance(expert_fake, tuple):
             expert_fake = expert_fake[0]
+
+        if mean is not None and std is not None:
+            expert = expert * std + mean
+            expert_fake = expert_fake * std + mean
+
         expert_fake = torch.round(expert_fake * unnormalizing_value)
         expert = torch.round(expert * unnormalizing_value)
         mse = criterion_pixel_wise(expert_fake, expert)
@@ -26,7 +31,7 @@ def calculate_psnr(trainer, dataloader, device, criterion_pixel_wise, unnormaliz
 
 
 @torch.no_grad()
-def visualize_result(trainer, dataloader, device, save_path, criterion_pixel_wise, unnormalizing_value=255):
+def visualize_result(trainer, dataloader, device, save_path, criterion_pixel_wise, unnormalizing_value=255, mean=None, std=None):
     trainer.disable_train()
     img_format = 'jpg' if unnormalizing_value == 255 else 'tif'
     for i, batch in enumerate(dataloader):
@@ -35,6 +40,10 @@ def visualize_result(trainer, dataloader, device, save_path, criterion_pixel_wis
         expert_fake = trainer.generator(img_input)
         if isinstance(expert_fake, list) or isinstance(expert_fake, tuple):
             expert_fake = expert_fake[0]
+        if mean is not None and std is not None:
+            img_input = img_input * std + mean
+            expert = expert * std + mean
+            expert_fake = expert_fake * std + mean
         img_sample = torch.cat((img_input.data, expert_fake.data, expert.data), -1)
         expert_fake = torch.round(expert_fake * unnormalizing_value)
         expert = torch.round(expert * unnormalizing_value)

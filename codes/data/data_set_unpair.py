@@ -55,5 +55,9 @@ class ImageDataSetTuUnpaired(ImageDataSet):
             if random.random() < self.color_jitter_prob:
                 img_input = self.color_jitter(img_input)
 
+        if self.mean is not None and self.std is not None:
+            img_expt_a = (img_expt_a - self.mean) / self.std
+            img_input = (img_input - self.mean) / self.std
+            img_expt_b = (img_expt_b - self.mean) / self.std
         return {'A_input': img_input, 'A_exptC': img_expt_a, 'B_exptC': img_expt_b, 'name': img_name}
 

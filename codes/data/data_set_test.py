@@ -19,6 +19,9 @@ class ImageDatasetTest(Dataset):
             index = [i for i in range(len(self.test_input_files))]
             index = np.random.choice(index, test_max_nums, replace=False)
             self.test_input_files = [self.test_input_files[i] for i in index]
+
+        self.mean = cfg.INPUT.get('DATA_MEAN', None)
+        self.std = cfg.INPUT.get('DATA_STD', None)
         return
 
     def __scale__(self, img):
@@ -57,5 +60,8 @@ class ImageDatasetTest(Dataset):
 
         img_rgb = cv2.cvtColor(cv2.imread(input_file, -1), cv2.COLOR_BGR2RGB)
         img_input = tif_opt.to_tensor(img_rgb)
+
+        if self.mean is not None and self.std is not None:
+            img_input = (img_input - self.mean) / self.std
 
         return {'input': self.__scale__(img_input), 'name': img_name}

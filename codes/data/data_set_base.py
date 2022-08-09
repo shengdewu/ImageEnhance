@@ -3,6 +3,7 @@ import numpy as np
 from torch.utils.data import Dataset
 from codes.data.fn.data_set_fn import search_files
 from .fn.resize_fn import MaxEdgeResize
+import logging
 
 
 class ImageDataSet(Dataset):
@@ -31,6 +32,10 @@ class ImageDataSet(Dataset):
         if cfg.INPUT.get('MAX_RESIZE', 0) > 0:
             self.max_resize = MaxEdgeResize(cfg.INPUT.MAX_RESIZE)
 
+        self.mean = cfg.INPUT.get('DATA_MEAN', None)
+        self.std = cfg.INPUT.get('DATA_STD', None)
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create {}\nDATA_MEAN:{}\nDATA_STD:{}'
+                                                    '\nMAX_RESIZE: {}'.format(self.__class__, self.mean, self.std, self.max_resize))
         return
 
     def __getitem__(self, index):
