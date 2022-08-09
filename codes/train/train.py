@@ -55,18 +55,18 @@ class EnhanceTrainer(BaseTrainer):
         psnr = train_fn.calculate_psnr(self.model, self.test_data_loader, self.device, EnhanceTrainer.criterion_pixel_wise, mean=self.mean, std=self.std)
         logging.getLogger(__name__).info('before train psnr = {}'.format(psnr))
 
-        # self.model.enable_train()
-        #
-        # for epoch in range(self.start_iter, self.max_iter):
-        #     data = next(self.iter_train_loader)
-        #
-        #     loss_dict = self.model(data, epoch=epoch)
-        #
-        #     self.checkpoint.save(self.model, epoch)
-        #     self.run_after(epoch, loss_dict)
-        #
-        # if self.start_iter < self.max_iter:
-        #     self.checkpoint.save(self.model, self.max_iter)
+        self.model.enable_train()
+
+        for epoch in range(self.start_iter, self.max_iter):
+            data = next(self.iter_train_loader)
+
+            loss_dict = self.model(data, epoch=epoch)
+
+            self.checkpoint.save(self.model, epoch)
+            self.run_after(epoch, loss_dict)
+
+        if self.start_iter < self.max_iter:
+            self.checkpoint.save(self.model, self.max_iter)
 
         psnr = train_fn.calculate_psnr(self.model, self.test_data_loader, self.device, EnhanceTrainer.criterion_pixel_wise, mean=self.mean, std=self.std)
         logging.getLogger(__name__).info('after train psnr = {}'.format(psnr))
