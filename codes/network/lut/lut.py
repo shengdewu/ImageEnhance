@@ -1,6 +1,5 @@
 import torch
 import itertools
-import torch.nn.functional as torch_func
 from engine.checkpoint.functional import get_model_state_dict, load_model_state_dict
 from .generator.generator import Generator3DLUT, Generator3DLUTSupplement
 from .classifier.classifier import ClassifierResnet, Classifier
@@ -18,7 +17,6 @@ class Gen3DLutModel(torch.nn.Module):
         nums = 8
         # class_arch = 'resnet18'
         use_in = True
-        down_factor = cfg.INPUT.DOWN_FACTOR
         if cfg.MODEL.NETWORK.get('LUT', None) is not None:
             dims = cfg.MODEL.NETWORK.LUT.get('DIMS', dims)
             is_zero = cfg.MODEL.NETWORK.LUT.get('SUPP_ZERO', is_zero)
@@ -27,11 +25,9 @@ class Gen3DLutModel(torch.nn.Module):
             use_in = cfg.MODEL.NETWORK.LUT.get('USE_INSTANCE', use_in)
 
         nums_class = nums + 1
-        self.down_factor = down_factor
-        assert self.down_factor % 2 == 0 or self.down_factor == 1, 'the {} must be divisible by 2 or equal 1'.format(self.down_factor)
 
         logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}:\n DIMS {}\nSUPP_ZERO {}\nSUPP_NUMS {}'
-                                                    '\nUSE_INSTANCE {}\ndown_factor {}'.format(self.__class__, dims, is_zero, nums, use_in, down_factor))
+                                                    '\nUSE_INSTANCE {}'.format(self.__class__, dims, is_zero, nums, use_in))
 
         self.lut0 = Generator3DLUT(dim=dims, device=self.device)
         self.lut1 = Generator3DLUTSupplement(dim=dims, nums=nums, device=self.device, is_zero=is_zero)
@@ -44,11 +40,8 @@ class Gen3DLutModel(torch.nn.Module):
         return self.dims
 
     def forward(self, x):
-        dx = x
-        if self.down_factor > 1:
-            dx = torch_func.interpolate(dx, scale_factor=1/self.down_factor, mode='bilinear')
 
-        cls_pre = self.classifier(dx).squeeze()
+        cls_pre = self.classifier(x).squeeze()
 
         assert cls_pre.shape[-1] - 1 == len(self.lut1)
 
@@ -63,6 +56,25 @@ class Gen3DLutModel(torch.nn.Module):
 
         weights_norm = torch.mean(cls_pre ** 2)
         return combine_a, weights_norm
+
+    def lut(self, x):
+        cls_pre = self.classifier(x).squeeze()
+
+        assert cls_pre.shape[-1] - 1 == len(self.lut1)
+
+        if len(cls_pre.shape) == 1:
+            cls_pre = cls_pre.unsqueeze(0)
+
+        n, c = cls_pre.shape
+
+        luts = list()
+        for b in range(n):
+            shape = 1, 1, 1, 1
+            combine_lut = cls_pre[b, 0].reshape(shape) * self.lut0.lut
+            for i, lut in self.lut1.foreach():
+                combine_lut += cls_pre[b, i + 1].reshape(shape) * lut.lut
+            luts.append(torch.clip(combine_lut, 0.0, 1.0))
+        return luts
 
     def parameters(self):
         parameters = self.lut1.parameters()

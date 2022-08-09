@@ -8,6 +8,8 @@ import logging
 import copy
 from engine.comm import TORCH_VERSION
 from engine.loss.vgg_loss import PerceptualLoss
+import torch.nn.functional as torch_func
+from ..network.lut.trilinear.trilinear import TrilinearInterpolationModel
 
 
 @BUILD_MODEL_REGISTRY.register()
@@ -25,6 +27,9 @@ class LutModel(PairBaseModel):
         self.criterion_pixel_wise = torch.nn.MSELoss().to(self.device)
         self.tv3 = TV3D(cfg.MODEL.NETWORK.LUT.DIMS, cfg.MODEL.DEVICE)
 
+        self.down_factor = cfg.INPUT.get('DOWN_FACTOR', 1)
+        assert self.down_factor % 2 == 0 or self.down_factor == 1, 'the {} must be divisible by 2 or equal 1'.format(self.down_factor)
+
         return
 
     def run_step(self, data, *, epoch=None, **kwargs):
@@ -35,10 +40,12 @@ class LutModel(PairBaseModel):
         :return:
         """
         device_input = data['input'].to(self.device, non_blocking=True)
+        device_gt = data['expert'].to(self.device, non_blocking=True)
+        if self.down_factor > 1:
+            device_input = torch_func.interpolate(device_input, scale_factor=1 / self.down_factor, mode='bilinear')
+            device_gt = torch_func.interpolate(device_gt, scale_factor=1 / self.down_factor, mode='bilinear')
 
         enhance_img, weights_norm = self.g_model(device_input)
-
-        device_gt = data['expert'].to(self.device, non_blocking=True)
 
         loss_pixel = self.criterion_pixel_wise(enhance_img, device_gt)
         loss_perceptual = self.criterion_perceptual(enhance_img, device_gt)
@@ -61,7 +68,17 @@ class LutModel(PairBaseModel):
                 'loss_perceptual': loss_perceptual.item()}
 
     def generator(self, input_data):
-        return self.g_model(input_data.to(self.device, non_blocking=True))
+        x = input_data.to(self.device, non_blocking=True)
+        dx = x
+        if self.down_factor > 1:
+            dx = torch_func.interpolate(dx, scale_factor=1 / self.down_factor, mode='bilinear')
+        luts = self.g_model.lut(dx)
+
+        fakes = list()
+        for i in range(len(luts)):
+            _, fake = TrilinearInterpolationModel()(luts[i], x[i, :].unsqueeze(0))
+            fakes.append(fake)
+        return torch.cat(fakes, dim=0)
 
     def enable_distribute(self, cfg):
         if cfg.MODEL.TRAINER.TYPE == 1 and cfg.MODEL.TRAINER.GPU_ID >= 0:
