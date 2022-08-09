@@ -16,22 +16,22 @@ class Gen3DLutModel(torch.nn.Module):
         dims = 33
         is_zero = True
         nums = 8
-        class_arch = 'resnet18'
+        # class_arch = 'resnet18'
         use_in = True
         down_factor = cfg.INPUT.DOWN_FACTOR
         if cfg.MODEL.NETWORK.get('LUT', None) is not None:
             dims = cfg.MODEL.NETWORK.LUT.get('DIMS', dims)
             is_zero = cfg.MODEL.NETWORK.LUT.get('SUPP_ZERO', is_zero)
             nums = cfg.MODEL.NETWORK.LUT.get('SUPP_NUMS', nums)
-            class_arch = cfg.MODEL.NETWORK.LUT.get('CLASS_ARCH', class_arch)
+            # class_arch = cfg.MODEL.NETWORK.LUT.get('CLASS_ARCH', class_arch)
             use_in = cfg.MODEL.NETWORK.LUT.get('USE_INSTANCE', use_in)
 
         nums_class = nums + 1
         self.down_factor = down_factor
         assert self.down_factor % 2 == 0 or self.down_factor == 1, 'the {} must be divisible by 2 or equal 1'.format(self.down_factor)
 
-        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}:\n DIMS {}\nSUPP_ZERO {}\nSUPP_NUMS {}\n'
-                                                    'CLASS_ARCH {}\nUSE_INSTANCE {}\ndown_factor {}'.format(self.__class__, dims, is_zero, nums, class_arch, use_in, down_factor))
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}:\n DIMS {}\nSUPP_ZERO {}\nSUPP_NUMS {}'
+                                                    '\nUSE_INSTANCE {}\ndown_factor {}'.format(self.__class__, dims, is_zero, nums, use_in, down_factor))
 
         self.lut0 = Generator3DLUT(dim=dims, device=self.device)
         self.lut1 = Generator3DLUTSupplement(dim=dims, nums=nums, device=self.device, is_zero=is_zero)
