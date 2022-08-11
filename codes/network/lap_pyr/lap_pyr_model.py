@@ -68,7 +68,7 @@ class UpSample(torch.nn.Module):
 
 
 class UnetBackBone(torch.nn.Module):
-    def __init__(self, kernel_number=24, layers=4, use_in=False, max_channel=512, activation=None):
+    def __init__(self, kernel_number=24, layers=4, use_in=False, max_channel=512, activation=None, bilinear=False):
         super(UnetBackBone, self).__init__()
         self.layers = layers
 
@@ -94,7 +94,7 @@ class UnetBackBone(torch.nn.Module):
             out_channel, in_channel = channel_tuple[i]
             conv_block = ConvBlock(out_channel*2, out_channel, use_in)
             setattr(self, 'conv_block{}'.format(i), conv_block)
-            up_block = UpSample(in_channel, out_channel, use_in=use_in)
+            up_block = UpSample(in_channel, out_channel, use_in=use_in, bilinear=bilinear)
             setattr(self, 'up_block{}'.format(i), up_block)
 
         in_channel, _ = channel_tuple[0]
@@ -155,3 +155,43 @@ class LaplacianPyramid(torch.nn.Module):
         if self.clip is not None:
             return torch.clip(x, float(self.clip[0]), float(self.clip[1]))
         return x
+
+
+@BUILD_NETWORK_REGISTRY.register()
+class MultiScaleExposureNet(torch.nn.Module):
+    def __init__(self, cfg):
+        super(MultiScaleExposureNet, self).__init__()
+
+        use_in = False
+        max_channel = 1024
+        bi_linear = False
+        if cfg.MODEL.NETWORK.get('LAP_PYRAMID', None) is not None:
+            use_in = cfg.MODEL.NETWORK.LAP_PYRAMID.get('USE_IN', use_in)
+            max_channel = cfg.MODEL.NETWORK.LAP_PYRAMID.get('MAX_CHANNEL', max_channel)
+            bi_linear = cfg.MODEL.NETWORK.LAP_PYRAMID.get('BI_LINEAR', max_channel)
+
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}\n'
+                                                    '    use_in: {}\n    max_channel: {}\n    bi_linear: {}'.format(self.__class__, use_in, max_channel, bi_linear))
+
+        self.sub_net_1 = UnetBackBone(24, 4, use_in, max_channel, bilinear=bi_linear)
+        self.sub_net_2 = UnetBackBone(24, 3, use_in, max_channel, bilinear=bi_linear)
+        self.sub_net_3 = UnetBackBone(24, 3, use_in, max_channel, bilinear=bi_linear)
+        self.sub_net_4 = UnetBackBone(16, 3, use_in, max_channel, bilinear=bi_linear)
+
+        self.up1 = UpSample(3, 3, use_in=use_in, bilinear=bi_linear)
+        self.up2 = UpSample(3, 3, use_in=use_in, bilinear=bi_linear)
+        self.up3 = UpSample(3, 3, use_in=use_in, bilinear=bi_linear)
+
+        return
+
+    def forward(self, x_list):
+        y1_0 = self.sub_net_1(x_list[-1])
+        y1_1 = self.up1(y1_0, x_list[-2].shape[2], x_list[-2].shape[3])
+        y2_0 = self.sub_net_2(y1_1 + x_list[-2]) + y1_1
+        y2_1 = self.up2(y2_0, x_list[-3].shape[2], x_list[-3].shape[3])
+        y3_0 = self.sub_net_3(y2_1 + x_list[-3]) + y2_1
+        y3_1 = self.up3(y3_0, x_list[-4].shape[2], x_list[-4].shape[3])
+        y4 = self.sub_net_4(y3_1 + x_list[-4]) + y3_1
+        return [y1_1, y2_1, y3_1, y4]
+
+

@@ -50,7 +50,7 @@ def visualize_result(trainer, dataloader, device, save_path, criterion_pixel_wis
         mse = criterion_pixel_wise(expert_fake, expert)
         mse = torch.clip(mse, 0.00000001, 4294967296.0)
         psnr = 10.0 * math.log10(float(unnormalizing_value) * unnormalizing_value / mse.item())
-        save_image(img_sample, '{}/{}-{}.{}'.format(save_path, i, int(psnr), img_format), unnormalizing_value=unnormalizing_value, nrow=1, normalize=False)
+        save_image(img_sample, '{}/{}-{}.{}'.format(save_path, i, int(psnr), img_format), unnormalizing_value=unnormalizing_value, nrow=1, normalize=False, mean=mean, std=std)
     return
 
 

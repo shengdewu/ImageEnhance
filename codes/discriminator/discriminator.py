@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as tnf
 from codes.discriminator.build import BUILD_DISCRIMINATOR_REGISTRY
 
 __all__ = [
@@ -105,3 +106,34 @@ class MultiDiscriminatorV2(torch.nn.Module):
             outputs.append(m(x))
             x = self.downsample(x)
         return outputs
+
+
+@BUILD_DISCRIMINATOR_REGISTRY.register()
+class MultiScaleExposureDis(torch.nn.Module):
+    def __init__(self):
+        super(MultiScaleExposureDis, self).__init__()
+
+        def block(in_channels, out_channel, kernel_size, stride, padding, normalization=False):
+            layers = [torch.nn.Conv2d(in_channels, out_channel, kernel_size, stride, padding)]
+            if normalization:
+                layers.append(torch.nn.BatchNorm2d(out_channel, affine=True))
+            layers.append(torch.nn.LeakyReLU())
+            return layers
+
+        self.model = torch.nn.Sequential(
+            *block(3, 8, 4, 2, 1),
+            *block(8, 16, 4, 2, 1, True),
+            *block(16, 32, 4, 2, 1),
+            *block(32, 64, 4, 2, 1),
+            *block(64, 128, 4, 2, 1),
+            *block(128, 128, 4, 2, 1),
+            *block(128, 256, 4, 2, 1),
+            torch.nn.Conv2d(256, 1, 2, 2, 0)
+        )
+        return
+
+    def forward(self, x):
+        if x.shape[2] != 256 and x.shape[3] != 256:
+            x = tnf.interpolate(x, (256, 256), mode='bilinear', align_corners=True)
+        return self.model(x)
+
