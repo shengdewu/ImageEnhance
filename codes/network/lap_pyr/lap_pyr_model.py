@@ -151,6 +151,7 @@ class LaplacianPyramid(torch.nn.Module):
         return
 
     def forward(self, x):
+        x = self.sub_net(x)
         if self.clip is not None:
             return torch.clip(x, float(self.clip[0]), float(self.clip[1]))
-        return self.sub_net(x)
+        return x
