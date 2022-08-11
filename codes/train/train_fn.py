@@ -59,6 +59,10 @@ def save_image(tensor, fp, unnormalizing_value=255, **kwargs):
     fmt = np.uint8 if unnormalizing_value == 255 else np.uint16
     grid = torchvision.utils.make_grid(tensor, **kwargs)
     # Add 0.5 after unnormalizing to [0, unnormalizing_value] to round to nearest integer
-    ndarr = grid.mul(unnormalizing_value).add_(0.5).clamp_(0, unnormalizing_value).permute(1, 2, 0).to('cpu').numpy().astype(fmt)
+
+    if kwargs['mean'] is not None and kwargs['std'] is not None:
+        ndarr = (grid*kwargs['std']+kwargs['mean']).mul(unnormalizing_value).add_(0.5).clamp_(0, unnormalizing_value).permute(1, 2, 0).to('cpu').numpy().astype(fmt)
+    else:
+        ndarr = grid.mul(unnormalizing_value).add_(0.5).clamp_(0, unnormalizing_value).permute(1, 2, 0).to('cpu').numpy().astype(fmt)
     cv2.imwrite(fp, ndarr[:, :, ::-1])
     return

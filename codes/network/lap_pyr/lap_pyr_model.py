@@ -141,11 +141,16 @@ class LaplacianPyramid(torch.nn.Module):
         if cfg.INPUT.get('DATA_MEAN', None) is not None and cfg.INPUT.get('DATA_STD', None) is not None:
             active = torch.nn.Tanh()
 
+        self.clip = cfg.INPUT.get('CLIP', None)
+
         logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}\nkernel_number: {}\nlayers: {}\n'
-                                                    'use_in: {}\nmax_channel: {}\nACTIVATE: {}'.format(self.__class__, kernel_number, layers, use_in, max_channel, active))
+                                                    'use_in: {}\nmax_channel: {}\nACTIVATE: {}\n'
+                                                    'clip:{}'.format(self.__class__, kernel_number, layers, use_in, max_channel, active, self.clip))
 
         self.sub_net = UnetBackBone(kernel_number, layers, use_in, max_channel=max_channel, activation=active)
         return
 
     def forward(self, x):
+        if self.clip is not None:
+            return torch.clip(x, float(self.clip[0]), float(self.clip[1]))
         return self.sub_net(x)

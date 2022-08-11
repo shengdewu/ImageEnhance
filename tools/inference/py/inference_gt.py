@@ -44,7 +44,10 @@ class InferenceNoneGt(Inference):
 
             img_sample = torch.cat((real, enhance_img), -1)
 
-            save_image(img_sample, '{}/{}'.format(output, data['name']), unnormalizing_value=self.unnormalizing_value, nrow=1, normalize=False)
+            mean_std = {'mean': cfg.INPUT.get('DATA_MEAN', None),
+                        'std': cfg.INPUT.get('DATA_STD', None)}
+
+            save_image(img_sample, '{}/{}'.format(output, data['name']), unnormalizing_value=self.unnormalizing_value, nrow=1, normalize=False, **mean_std)
         return
 
 

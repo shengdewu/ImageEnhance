@@ -48,17 +48,25 @@ def merge_config(use_model_config=False):
         vgg_path = ''
         if cfg.MODEL.get('VGG', None) is not None:
             vgg_path = cfg.MODEL.VGG.PATH
+
+        pyramid_level = None
+        if cfg.MODEL.NETWORK.get('LAP_PYRAMID', None) is not None:
+            if cfg.MODEL.NETWORK.LAP_PYRAMID.get('PYRAMID_LEVEL', None) is not None:
+                pyramid_level = cfg.MODEL.NETWORK.LAP_PYRAMID.PYRAMID_LEVEL
+
         weights = cfg.MODEL.WEIGHTS
         device = cfg.MODEL.DEVICE
         down_factor = cfg.INPUT.DOWN_FACTOR
         cfg.SOLVER = hcfg.SOLVER
         cfg.MODEL = hcfg.MODEL
+        cfg.INPUT = hcfg.INPUT
 
         if cfg.MODEL.get('VGG', None) is not None:
             cfg.MODEL.VGG.PATH = vgg_path
         cfg.MODEL.WEIGHTS = weights
         cfg.MODEL.DEVICE = device
         cfg.INPUT.DOWN_FACTOR = down_factor
-
+        if pyramid_level is not None:
+            cfg.MODEL.NETWORK.LAP_PYRAMID.PYRAMID_LEVEL = pyramid_level
     cfg.freeze()
     return cfg
