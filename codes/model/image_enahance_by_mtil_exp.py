@@ -24,7 +24,7 @@ class PyrLoss(torch.nn.Module):
     def __init__(self, weight=1.0):
         super(PyrLoss, self).__init__()
         self.weight = weight
-        self.criterion = torch.nn.L1Loss(reduce='sum')
+        self.criterion = torch.nn.L1Loss(reduction='sum')
         return
 
     def forward(self, y_list, t_list):
@@ -67,6 +67,7 @@ class Genloss(torch.nn.Module):
         self.pyr_loss = PyrLoss(pyr_weight)
         self.rec_loss = RecLoss(rec_weight)
         self.adv_loss = AdvLoss(size, adv_weight)
+        return
 
     def forward(self, y_list, t_list, p_y=None, withoutadvloss=False):
         pyr_loss = self.pyr_loss(y_list, t_list)
