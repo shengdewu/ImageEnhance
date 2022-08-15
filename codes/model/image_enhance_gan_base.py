@@ -15,9 +15,10 @@ class GanBaseModel(BaseGanModel):
         return
 
     def create_d_optimizer(self, cfg, parameters: Iterator[torch.nn.Parameter]) -> torch.optim.Optimizer:
+        lr = cfg.SOLVER.OPTIMIZER.BASE_LR if cfg.SOLVER.OPTIMIZER.get('D_LR', None) is None else cfg.SOLVER.OPTIMIZER.D_LR
         return build_optimizer_with_gradient_clipping(cfg, torch.optim.Adam)(
             parameters,
-            lr=cfg.SOLVER.OPTIMIZER.BASE_LR,
+            lr=lr,
             betas=(cfg.SOLVER.OPTIMIZER.ADAM.B1, cfg.SOLVER.OPTIMIZER.ADAM.B2),
             weight_decay=cfg.SOLVER.OPTIMIZER.WEIGHT_DECAY
         )

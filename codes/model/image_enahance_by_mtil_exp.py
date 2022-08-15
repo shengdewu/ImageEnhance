@@ -92,7 +92,7 @@ class MENGanModel(GanBaseModel):
         self.lambda_gp = cfg.SOLVER.LOSS.LAMBDA.get('LAMBDA_GP', 100)
         self.enable_d_model = cfg.MODEL.get('ENABLE_DISCRIMINATOR', True)
         self.net_d_iters = cfg.SOLVER.LOSS.get('DISCRIMINATOR_ITERS', 1)
-        self.net_d_init_iters = cfg.SOLVER.LOSS.get('DISCRIMINATOR_INIT_ITERS', 0)
+        self.net_d_init_iters = cfg.SOLVER.LOSS.get('DISCRIMINATOR_INIT_ITERS', 15)
 
         self.level = self.use_level + 1
         if cfg.MODEL.NETWORK.get('LAP_PYRAMID', None) is not None:
@@ -152,12 +152,10 @@ class MENGanModel(GanBaseModel):
 
         loss_dict = dict()
         # optimize d
-        for p in self.d_model.parameters():
-            p.requires_grad = True
-
-        self.d_optimizer.zero_grad()
-
         if self.enable_d_model:
+            # for p in self.d_model.parameters():
+            #     p.requires_grad = True
+
             self.d_optimizer.zero_grad()
             y_list = self.g_model(input_lap)
             y_list = [y.detach() for y in y_list]
@@ -166,14 +164,15 @@ class MENGanModel(GanBaseModel):
             d_loss = self.dis_loss(p_y, p_t)
             d_loss.backward()
             self.d_optimizer.step()
+            loss_dict['d_loss'] = d_loss.item()
 
         # optimize g
-        for p in self.d_model.parameters():
-            p.requires_grad = False
+        # for p in self.d_model.parameters():
+        #     p.requires_grad = False
 
         self.g_optimizer.zero_grad()
         y_list = self.g_model(input_lap)
-        if epoch % self.net_d_iters == 0 and epoch > self.net_d_init_iters:
+        if epoch > self.net_d_init_iters:
             if self.enable_d_model:
                 p_y = self.d_model(y_list[-1])
                 rec_loss, pyr_loss, adv_loss, loss = self.gen_loss(y_list, ref_gauss, p_y, withoutadvloss=False)

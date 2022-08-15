@@ -168,7 +168,7 @@ class MultiScaleExposureNet(torch.nn.Module):
         if cfg.MODEL.NETWORK.get('LAP_PYRAMID', None) is not None:
             use_in = cfg.MODEL.NETWORK.LAP_PYRAMID.get('USE_IN', use_in)
             max_channel = cfg.MODEL.NETWORK.LAP_PYRAMID.get('MAX_CHANNEL', max_channel)
-            bi_linear = cfg.MODEL.NETWORK.LAP_PYRAMID.get('BI_LINEAR', max_channel)
+            bi_linear = cfg.MODEL.NETWORK.LAP_PYRAMID.get('BI_LINEAR', bi_linear)
 
         logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}\n'
                                                     '    use_in: {}\n    max_channel: {}\n    bi_linear: {}'.format(self.__class__, use_in, max_channel, bi_linear))
