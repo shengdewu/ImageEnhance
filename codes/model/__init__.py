@@ -5,4 +5,4 @@ from codes.model.image_enhance_by_lap import LapGanModel
 from codes.model.image_enhance_by_lut import LutModel
 from codes.model.image_enhance_by_lap_cls import LapModel
 from codes.model.image_enhance_by_glut import LutGanModel
-from codes.model.image_enahance_by_mtil_exp import MENGanModel
+from codes.model.image_enhance_by_mtil_exp import MENGanModel
