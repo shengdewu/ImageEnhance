@@ -138,8 +138,8 @@ class LaplacianPyramid(torch.nn.Module):
             max_channel = cfg.MODEL.NETWORK.LAP_PYRAMID.get('MAX_CHANNEL', max_channel)
 
         active = None
-        if cfg.INPUT.get('DATA_MEAN', None) is not None and cfg.INPUT.get('DATA_STD', None) is not None:
-            active = torch.nn.Tanh()
+        # if cfg.INPUT.get('DATA_MEAN', None) is not None and cfg.INPUT.get('DATA_STD', None) is not None:
+        #     active = torch.nn.Tanh()
 
         self.clip = cfg.INPUT.get('CLIP', None)
 
