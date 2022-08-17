@@ -192,6 +192,6 @@ class MultiScaleExposureNet(torch.nn.Module):
         y3_0 = self.sub_net_3(y2_1 + x_list[-3]) + y2_1
         y3_1 = self.up3(y3_0, x_list[-4].shape[2], x_list[-4].shape[3])
         y4 = self.sub_net_4(y3_1 + x_list[-4]) + y3_1
-        return [y1_1, y2_1, y3_1, y4]
+        return [y1_0, y2_0, y3_0, y4]
 
 

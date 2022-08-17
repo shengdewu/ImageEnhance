@@ -88,16 +88,18 @@ class MENGanModel(GanBaseModel):
         self.use_level = 4
 
         self.dis_loss = DLoss().to(self.device)
-        self.gen_loss = Genloss(size=256).to(self.device)
+        self.adv_loss = AdvLoss(size=256).to(self.device)
+        self.pixel_loss = torch.nn.L1Loss().to(self.device)
 
         self.lambda_gp = cfg.SOLVER.LOSS.LAMBDA.get('LAMBDA_GP', 100)
         self.enable_d_model = cfg.MODEL.get('ENABLE_DISCRIMINATOR', True)
         self.net_d_iters = cfg.SOLVER.LOSS.get('DISCRIMINATOR_ITERS', 1)
         self.net_d_init_iters = cfg.SOLVER.LOSS.get('DISCRIMINATOR_INIT_ITERS', 15)
 
-        self.level = self.use_level + 1
+        self.level = self.use_level
         if cfg.MODEL.NETWORK.get('LAP_PYRAMID', None) is not None:
-            self.level = cfg.MODEL.NETWORK.LAP_PYRAMID.get('PYRAMID_LEVEL', self.level)
+            level = cfg.MODEL.NETWORK.LAP_PYRAMID.get('PYRAMID_LEVEL', self.use_level-1)
+            self.level = max(level, self.level-1)
 
         logging.getLogger(cfg.OUTPUT_LOG_NAME).info('param: \nGAN_TYPE:{}\nLAMBDA_GP:{}\nDISCRIMINATOR_ITERS: {}'
                                                     '\nDISCRIMINATOR_INIT_ITERS:{}\nENABLE_DISCRIMINATOR:{}'
@@ -125,11 +127,15 @@ class MENGanModel(GanBaseModel):
     def pyramid_re_cons(self, pyramid):
         return self.pyramid.pyramid_recons(pyramid)
 
-    def pyramid_g_loss(self, fakes, ref_gauss):
-        g_loss = self.pixel_loss(fakes[0], ref_gauss[-1])
-        for i in range(1, self.train_level):
-            g_loss += self.pixel_loss(fakes[i], ref_gauss[-(i + 1)])
-        return g_loss
+    def pyramid_g_loss(self, y_list, t_list):
+        n = len(y_list)
+        pyr_loss = torch.zeros(1, device=y_list[0].device)
+        for m in range(n - 1):
+            pyr_loss += (2 ** (n - m - 2)) * self.pixel_loss(y_list[m], t_list[m])
+
+        rec_loss = self.pixel_loss(y_list[-1], t_list[-1])
+
+        return pyr_loss, rec_loss
 
     def run_step(self, data, *, epoch=None, **kwargs):
         """
@@ -154,45 +160,50 @@ class MENGanModel(GanBaseModel):
         loss_dict = dict()
         # optimize d
         if self.enable_d_model:
-            # for p in self.d_model.parameters():
-            #     p.requires_grad = True
+            for p in self.d_model.parameters():
+                p.requires_grad = True
 
-            self.d_optimizer.zero_grad()
             y_list = self.g_model(input_lap)
             y_list = [y.detach() for y in y_list]
             p_y = self.d_model(y_list[-1])
             p_t = self.d_model(ref_gauss[-1])
             d_loss = self.dis_loss(p_y, p_t)
+
+            self.d_optimizer.zero_grad()
             d_loss.backward()
             self.d_optimizer.step()
+
             loss_dict['d_loss'] = d_loss.item()
 
         # optimize g
-        # for p in self.d_model.parameters():
-        #     p.requires_grad = False
+        for p in self.d_model.parameters():
+            p.requires_grad = False
+
+        y_list = self.g_model(input_lap)
+        if epoch > self.net_d_init_iters and self.enable_d_model:
+            p_y = self.d_model(y_list[-1])
+            pyr_loss, rec_loss = self.pyramid_g_loss(y_list, ref_gauss)
+            adv_loss = self.adv_loss(p_y)
+            total_loss = pyr_loss + rec_loss + adv_loss
+            loss_dict = {'rec_loss': rec_loss.item(), 'pyr_loss': pyr_loss.item(), 'adv_loss': adv_loss.item()}
+        else:
+            pyr_loss, rec_loss = self.pyramid_g_loss(y_list, ref_gauss)
+            total_loss = pyr_loss + rec_loss
+            loss_dict = {'rec_loss': rec_loss.item(), 'pyr_loss': pyr_loss.item()}
 
         self.g_optimizer.zero_grad()
-        y_list = self.g_model(input_lap)
-        if epoch > self.net_d_init_iters:
-            if self.enable_d_model:
-                p_y = self.d_model(y_list[-1])
-                rec_loss, pyr_loss, adv_loss, loss = self.gen_loss(y_list, ref_gauss, p_y, withoutadvloss=False)
-                loss_dict = {'rec_loss': rec_loss.item(), 'pyr_loss': pyr_loss.item(), 'adv_loss': adv_loss.item(), 'loss': loss.item()}
-            else:
-                rec_loss, pyr_loss, loss = self.gen_loss(y_list, ref_gauss, withoutadvloss=True)
-                loss_dict = {'rec_loss': rec_loss.item(), 'pyr_loss': pyr_loss.item(), 'loss': loss.item()}
-        else:
-            rec_loss, pyr_loss, loss = self.gen_loss(y_list, ref_gauss, withoutadvloss=True)
-            loss_dict = {'rec_loss': rec_loss.item(), 'pyr_loss': pyr_loss.item(), 'loss': loss.item()}
-
-            loss.backward()
-            self.g_optimizer.step()
+        total_loss.backward()
+        self.g_optimizer.step()
 
         return loss_dict
 
     def generator(self, data):
         input_data = data.to(self.device, non_blocking=True)
         input_lap, _ = self.pyramid_de_com(input_data)
+
+        if self.use_level == len(input_lap):
+            return self.g_model(input_lap)[-1]
+
         no_train_lap = input_lap[0: len(input_lap) - self.use_level]
         input_lap = input_lap[len(input_lap) - self.use_level:]
         y_list = self.g_model(input_lap)
