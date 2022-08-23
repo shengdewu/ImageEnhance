@@ -3,6 +3,14 @@ import torch.nn.functional as tnf
 import einops
 from codes.network.build import BUILD_NETWORK_REGISTRY
 
+__all__ = [
+    'MAXIMS1',
+    'MAXIMS2',
+    'MAXIMS3',
+    'MAXIMM1',
+    'MAXIMM2',
+    'MAXIMM2',
+]
 
 def conv3x3(in_channels, out_channels, bias=True):
     return torch.nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=bias)
@@ -673,7 +681,6 @@ class SAM(torch.nn.Module):
         return x1, image
 
 
-@BUILD_NETWORK_REGISTRY.register()
 class MAXIM(torch.nn.Module):
     """The MAXIM model function with multi-stage and multi-scale supervision.
 
@@ -1024,3 +1031,122 @@ class MAXIM(torch.nn.Module):
             outputs_all.append(outputs)
         return outputs_all
 
+
+@BUILD_NETWORK_REGISTRY.register()
+class MAXIMS1(MAXIM):
+    def __init__(self, cfg):
+
+        cfg = {
+            "features": 32,
+            "depth": 3,
+            "num_stages": 1,
+            "num_groups": 2,
+            "num_bottleneck_blocks": 2,
+            "block_gmlp_factor": 2,
+            "grid_gmlp_factor": 2,
+            "input_proj_factor": 2,
+            "channels_reduction": 4,
+        }
+
+        super(MAXIMS1, self).__init__(**cfg)
+        return
+
+
+@BUILD_NETWORK_REGISTRY.register()
+class MAXIMS2(MAXIM):
+    def __init__(self, cfg):
+
+        cfg = {
+            "features": 32,
+            "depth": 3,
+            "num_stages": 2,
+            "num_groups": 2,
+            "num_bottleneck_blocks": 2,
+            "block_gmlp_factor": 2,
+            "grid_gmlp_factor": 2,
+            "input_proj_factor": 2,
+            "channels_reduction": 4,
+        }
+
+        super(MAXIMS2, self).__init__(**cfg)
+        return
+
+
+@BUILD_NETWORK_REGISTRY.register()
+class MAXIMS3(MAXIM):
+    def __init__(self, cfg):
+
+        cfg = {
+            "features": 32,
+            "depth": 3,
+            "num_stages": 3,
+            "num_groups": 2,
+            "num_bottleneck_blocks": 2,
+            "block_gmlp_factor": 2,
+            "grid_gmlp_factor": 2,
+            "input_proj_factor": 2,
+            "channels_reduction": 4,
+        }
+
+        super(MAXIMS3, self).__init__(**cfg)
+        return
+
+
+@BUILD_NETWORK_REGISTRY.register()
+class MAXIMM1(MAXIM):
+    def __init__(self, cfg):
+
+        cfg = {
+            "features": 64,
+            "depth": 3,
+            "num_stages": 1,
+            "num_groups": 2,
+            "num_bottleneck_blocks": 2,
+            "block_gmlp_factor": 2,
+            "grid_gmlp_factor": 2,
+            "input_proj_factor": 2,
+            "channels_reduction": 4,
+        }
+
+        super(MAXIMM1, self).__init__(**cfg)
+        return
+
+
+@BUILD_NETWORK_REGISTRY.register()
+class MAXIMM2(MAXIM):
+    def __init__(self, cfg):
+
+        cfg = {
+            "features": 64,
+            "depth": 3,
+            "num_stages": 2,
+            "num_groups": 2,
+            "num_bottleneck_blocks": 2,
+            "block_gmlp_factor": 2,
+            "grid_gmlp_factor": 2,
+            "input_proj_factor": 2,
+            "channels_reduction": 4,
+        }
+
+        super(MAXIMM2, self).__init__(**cfg)
+        return
+
+
+@BUILD_NETWORK_REGISTRY.register()
+class MAXIMM3(MAXIM):
+    def __init__(self, cfg):
+
+        cfg = {
+            "features": 64,
+            "depth": 3,
+            "num_stages": 3,
+            "num_groups": 2,
+            "num_bottleneck_blocks": 2,
+            "block_gmlp_factor": 2,
+            "grid_gmlp_factor": 2,
+            "input_proj_factor": 2,
+            "channels_reduction": 4,
+        }
+
+        super(MAXIMM3, self).__init__(**cfg)
+        return
