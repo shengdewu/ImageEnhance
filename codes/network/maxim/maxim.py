@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as tnf
 import einops
+from codes.network.build import BUILD_NETWORK_REGISTRY
 
 
 def conv3x3(in_channels, out_channels, bias=True):
@@ -672,6 +673,7 @@ class SAM(torch.nn.Module):
         return x1, image
 
 
+@BUILD_NETWORK_REGISTRY.register()
 class MAXIM(torch.nn.Module):
     """The MAXIM model function with multi-stage and multi-scale supervision.
 
