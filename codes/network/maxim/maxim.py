@@ -9,7 +9,7 @@ __all__ = [
     'MAXIMS3',
     'MAXIMM1',
     'MAXIMM2',
-    'MAXIMM2',
+    'MAXIMM3',
 ]
 
 def conv3x3(in_channels, out_channels, bias=True):
