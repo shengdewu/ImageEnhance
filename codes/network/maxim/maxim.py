@@ -900,7 +900,7 @@ class MAXIM(torch.nn.Module):
                         ratio=2 ** (depth - j - 1 - i),
                         use_bias=use_bias)
                     setattr(self, f"UpSampleRatio_skip_signals_{idx_stage}_{i}_{j}", _UpSampleRatio)
-                if i == self.depth:
+                if i == self.depth - 1:
                     in_channel_temp_UDB = 128
                     in_channel_temp_UDB_skip = 384
                 else:
