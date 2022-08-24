@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as tnf
 import einops
 from codes.network.build import BUILD_NETWORK_REGISTRY
+import logging
 
 __all__ = [
     'MAXIMS1',
@@ -11,6 +12,7 @@ __all__ = [
     'MAXIMM2',
     'MAXIMM3',
 ]
+
 
 def conv3x3(in_channels, out_channels, bias=True):
     return torch.nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=bias)
@@ -166,7 +168,7 @@ class GridGlobalMixLayer(torch.nn.Module):
         self.dropout = dropout
         return
 
-    def forwatd(self, x, deterministic=True):
+    def forward(self, x, deterministic=True):
         n, c, h, w = x.shape
         gh, gw = self.grid_size
         fh, fw = h // gh, w // gw
@@ -267,7 +269,7 @@ class ResidualSplitHeadMultiAxisGMLPLayer(torch.nn.Module):
         self.linear2 = torch.nn.Linear(in_channel * input_proj_factor, in_channel, bias=bias)
         return
 
-    def forward(self, x, deterministic):
+    def forward(self, x, deterministic=True):
         shortcut = x
         n, num_channels, h, w, = x.shape
         x = torch.nn.LayerNorm([num_channels, h, w])(x)
@@ -1035,7 +1037,7 @@ class MAXIM(torch.nn.Module):
 @BUILD_NETWORK_REGISTRY.register()
 class MAXIMS1(MAXIM):
     def __init__(self, cfg):
-
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('select {}'.format(self.__class__))
         cfg = {
             "features": 32,
             "depth": 3,
@@ -1055,7 +1057,7 @@ class MAXIMS1(MAXIM):
 @BUILD_NETWORK_REGISTRY.register()
 class MAXIMS2(MAXIM):
     def __init__(self, cfg):
-
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('select {}'.format(self.__class__))
         cfg = {
             "features": 32,
             "depth": 3,
@@ -1075,7 +1077,7 @@ class MAXIMS2(MAXIM):
 @BUILD_NETWORK_REGISTRY.register()
 class MAXIMS3(MAXIM):
     def __init__(self, cfg):
-
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('select {}'.format(self.__class__))
         cfg = {
             "features": 32,
             "depth": 3,
@@ -1095,7 +1097,7 @@ class MAXIMS3(MAXIM):
 @BUILD_NETWORK_REGISTRY.register()
 class MAXIMM1(MAXIM):
     def __init__(self, cfg):
-
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('select {}'.format(self.__class__))
         cfg = {
             "features": 64,
             "depth": 3,
@@ -1115,7 +1117,7 @@ class MAXIMM1(MAXIM):
 @BUILD_NETWORK_REGISTRY.register()
 class MAXIMM2(MAXIM):
     def __init__(self, cfg):
-
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('select {}'.format(self.__class__))
         cfg = {
             "features": 64,
             "depth": 3,
@@ -1135,7 +1137,7 @@ class MAXIMM2(MAXIM):
 @BUILD_NETWORK_REGISTRY.register()
 class MAXIMM3(MAXIM):
     def __init__(self, cfg):
-
+        logging.getLogger(cfg.OUTPUT_LOG_NAME).info('select {}'.format(self.__class__))
         cfg = {
             "features": 64,
             "depth": 3,
