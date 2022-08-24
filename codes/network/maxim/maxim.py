@@ -23,7 +23,7 @@ def conv1x1(in_channels, out_channels, bias=True):
 
 
 def conv_trans(in_channels, out_channels, bias=True):
-    return torch.nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, padding=2, bias=bias)
+    return torch.nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2, padding=0, bias=bias)
 
 
 def conv_down(in_channels, out_channels, bias=True):
@@ -43,14 +43,14 @@ def block_images_einops(x, patch_size):
 
 def unblock_images_einops(x, grid_size, patch_size):
     x = x.permute(0, 2, 3, 1)
-    x = einops.rearrange(x, 'n (gh, gw) (fh fw) c -> n (gh fh) (gw fw) c',
+    x = einops.rearrange(x, 'n (gh gw) (fh fw) c -> n (gh fh) (gw fw) c',
                          gh=grid_size[0], gw=grid_size[1],
                          fh=patch_size[0], fw=patch_size[1])
     return x.permute(0, 3, 1, 2)
 
 
 def to_nhwc(x):
-    return einops.rearrange(x, 'n c h w -> h h w c')
+    return einops.rearrange(x, 'n c h w -> n h w c')
 
 
 def to_nchw(x):
@@ -175,7 +175,7 @@ class GridGlobalMixLayer(torch.nn.Module):
         x = block_images_einops(x, patch_size=(fh, fw))
         # gMLP1: Global (grid) mixing part, provides global grid communication.
         _n, _c, _h, _w = x.shape
-        y = torch.nn.LayerNorm(_c, _h, _w)(x)
+        y = torch.nn.LayerNorm([_c, _h, _w])(x)
 
         y = torch.swapaxes(y, -1, -3)
         y = self.linear_1(y)
@@ -267,6 +267,7 @@ class ResidualSplitHeadMultiAxisGMLPLayer(torch.nn.Module):
                                                   factor=block_gmlp_factor,
                                                   dropout=dropout_rate)
         self.linear2 = torch.nn.Linear(in_channel * input_proj_factor, in_channel, bias=bias)
+        self.dropout_rate = dropout_rate
         return
 
     def forward(self, x, deterministic=True):
@@ -297,7 +298,7 @@ class RDCAB(torch.nn.Module):
     """Residual dense channel attention block. Used in Bottlenecks."""
     def __init__(self, in_channel,features,reduction=16,bias=True,dropout_rate=0.0):
         super(RDCAB, self).__init__()
-        self.mlpb = MLPBlock(in_dim=in_channel,
+        self.mlp = MLPBlock(in_dim=in_channel,
                              mlp_dim=features,
                              dropout=dropout_rate,
                              use_bias=bias)
@@ -351,8 +352,8 @@ class BottleneckBlock(torch.nn.Module):
                 dropout_rate=dropout_rate)
             setattr(self, f"Rdcab_{idx}", Rdcab)
 
-            self.num_groups = num_groups
-            return
+        self.num_groups = num_groups
+        return
 
     def forward(self, x):
         """Applies the Mixer block to inputs."""
@@ -426,6 +427,7 @@ class UNetEncoderBlock(torch.nn.Module):
 
         self.num_groups = num_groups
         self.use_global_mlp = use_global_mlp
+        self.downsample = downsample
         return
 
     def forward(self, x,
@@ -753,6 +755,7 @@ class MAXIM(torch.nn.Module):
         self.num_stages = num_stages
         self.num_bottleneck_blocks = num_bottleneck_blocks
         self.depth = depth
+        self.grid_size_lr = grid_size_lr
 
         for idx_stage in range(num_stages):
             for i in range(num_supervision_scales):
@@ -928,6 +931,18 @@ class MAXIM(torch.nn.Module):
 
     def forward(self, x, *, train: bool = False):
         n, c, h, w, = x.shape  # input image shape
+        offset_w = 0
+        offset_h = 0
+        if h % self.grid_size_lr[0] != 0 and w % self.grid_size_lr[1] != 0:
+            new_h = int(h // self.grid_size_lr[0]) * self.grid_size_lr[0] + self.grid_size_lr[0]
+            new_w = int(w // self.grid_size_lr[1]) * self.grid_size_lr[1] + self.grid_size_lr[1]
+            offset_w = new_w - w
+            offset_h = new_h - h
+            like_x = torch.zeros((n, c, new_h, new_h), dtype=x.dtype, device=x.device)
+            like_x[:, :, offset_h//2:new_h-offset_h//2, offset_w//2:new_w-offset_w//2] = x
+            x = like_x
+            n, c, h, w = x.shape
+
         shortcuts = []
         shortcuts.append(x)
         # Get multi-scale input images
