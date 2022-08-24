@@ -886,6 +886,9 @@ class MAXIM(torch.nn.Module):
                 block_size = block_size_hr if i < high_res_stages else block_size_lr
                 grid_size = grid_size_hr if i < high_res_stages else block_size_lr
 
+                in_channel_temp_UDB = 128
+                in_channel_temp_UDB_skip = 384
+                in_channel_temp = 128
                 for j in range(depth):
                     if j == 0:
                         in_channel_temp = 128
