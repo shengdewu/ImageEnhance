@@ -851,9 +851,10 @@ class MAXIM(torch.nn.Module):
 
                 # Use cross-gating to cross modulate features
                 if use_cross_gating:
-                    in_channel_x_temp = 384
-                    in_channel_y_temp = 128
-                    if i != depth - 1:
+                    if i == self.depth - 1:
+                        in_channel_x_temp = 384
+                        in_channel_y_temp = 128
+                    else:
                         in_channel_x_temp = in_channel_x_temp // 2
                         in_channel_y_temp = (2 ** (i + 1)) * features
                     _CrossGatingBlock = CrossGatingBlock(
@@ -868,9 +869,10 @@ class MAXIM(torch.nn.Module):
                         bias=use_bias)
                     setattr(self, f"stage_{idx_stage}_cross_gating_block_{i}", _CrossGatingBlock)
                 else:
-                    in_channel_x_temp = 384
-                    in_channel_y_temp = 64
-                    if i != depth - 1:
+                    if i == self.depth - 1:
+                        in_channel_x_temp = 384
+                        in_channel_y_temp = 64
+                    else:
                         in_channel_x_temp = in_channel_x_temp // 2
                         in_channel_y_temp = (2 ** (i + 1)) * features
                     _tmp = conv1x1(in_channel_x_temp, (2 ** i) * features, bias=use_bias)
@@ -884,9 +886,10 @@ class MAXIM(torch.nn.Module):
                 block_size = block_size_hr if i < high_res_stages else block_size_lr
                 grid_size = grid_size_hr if i < high_res_stages else block_size_lr
 
-                in_channel_temp = 128
                 for j in range(depth):
-                    if j != 0:
+                    if j == 0:
+                        in_channel_temp = 128
+                    else:
                         in_channel_temp = in_channel_temp // 2
                     _UpSampleRatio = UpSample(
                         in_dim=in_channel_temp,
@@ -894,9 +897,10 @@ class MAXIM(torch.nn.Module):
                         ratio=2 ** (depth - j - 1 - i),
                         use_bias=use_bias)
                     setattr(self, f"UpSampleRatio_skip_signals_{idx_stage}_{i}_{j}", _UpSampleRatio)
-                in_channel_temp_UDB = 128
-                in_channel_temp_UDB_skip = 384
-                if i != depth - 1:
+                if i == self.depth:
+                    in_channel_temp_UDB = 128
+                    in_channel_temp_UDB_skip = 384
+                else:
                     in_channel_temp_UDB = (2 ** (i + 1)) * features
                     in_channel_temp_UDB_skip = in_channel_temp_UDB_skip // 2
                 _UNetDecoderBlock = UNetDecoderBlock(
