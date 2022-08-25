@@ -57,6 +57,18 @@ def to_nchw(x):
     return einops.rearrange(x, 'n h w c -> n c h w')
 
 
+class LayerNorm(torch.nn.Module):
+    def __init__(self, normalized_shape, eps: float = 1e-5, elementwise_affine: bool = True, device=None, dtype=None):
+        super(LayerNorm, self).__init__()
+        self.layer_norm = torch.nn.LayerNorm(normalized_shape, eps, elementwise_affine, device, dtype)
+        return
+
+    def forward(self, x):
+        x = to_nhwc(x)
+        x = self.layer_norm(x)
+        return to_nchw(x)
+
+
 class UpSample(torch.nn.Module):
     def __init__(self, in_dim, out_dim, ratio, use_bias=True):
         super(UpSample, self).__init__()
@@ -123,12 +135,15 @@ class ResidualChannelAttentionBlock(torch.nn.Module):
             conv3x3(in_dim, in_dim, bias=use_bias),
             ChannelAttentionLayer(in_dim, in_dim, reduction, use_bias)
         )
+
+        self.layer_norm = LayerNorm(in_dim)
         return
 
     def forward(self, x):
         short_cut = x
-        n, c, h, w = x.shape
-        x = torch.nn.LayerNorm([c, h, w])(x)
+        # n, c, h, w = x.shape
+        # x = torch.nn.LayerNorm([c, h, w])(x)
+        x = self.layer_norm(x)
         return short_cut + self.block(x)
 
 
@@ -137,9 +152,10 @@ class SpatialGatingUnit(torch.nn.Module):
 
     Based on: `Pay Attention to MLPs` - https://arxiv.org/abs/2105.08050
     """
-    def __init__(self, h_size, use_bias=True):
+    def __init__(self, h_size, in_channel, use_bias=True):
         super().__init__()
         self.proj = torch.nn.Linear(h_size, h_size, bias=use_bias)
+        self.layer_normal = LayerNorm(in_channel)
         return
 
     def init_weights(self):
@@ -150,8 +166,9 @@ class SpatialGatingUnit(torch.nn.Module):
 
     def forward(self, x):
         u, v = x.chunk(2, dim=1)
-        v_b, v_c, v_h, v_w = v.shape
-        v = torch.nn.LayerNorm([v_c, v_h, v_w])(v)
+        # v_b, v_c, v_h, v_w = v.shape
+        # v = torch.nn.LayerNorm([v_c, v_h, v_w])(v)
+        v = self.layer_normal(v)
         v = self.proj(torch.swapaxes(v, -1, -2))
         v = torch.swapaxes(v, -1, -2)
         return u * (v + 1.)
@@ -161,9 +178,10 @@ class GridGlobalMixLayer(torch.nn.Module):
     """Grid gMLP layer that performs global mixing of tokens."""
     def __init__(self, in_channel, grid_size, bias=True, factor=2., dropout=0.):
         super(GridGlobalMixLayer, self).__init__()
+        self.layer_normal = LayerNorm(in_channel)
         self.linear_1 = torch.nn.Linear(in_channel, in_channel*factor, bias=bias)
         self.linear_2 = torch.nn.Linear(in_channel, in_channel, bias=bias)
-        self.gate = SpatialGatingUnit(grid_size[0]*grid_size[1])
+        self.gate = SpatialGatingUnit(grid_size[0]*grid_size[1], in_channel)
         self.grid_size = grid_size
         self.dropout = dropout
         return
@@ -174,8 +192,9 @@ class GridGlobalMixLayer(torch.nn.Module):
         fh, fw = h // gh, w // gw
         x = block_images_einops(x, patch_size=(fh, fw))
         # gMLP1: Global (grid) mixing part, provides global grid communication.
-        _n, _c, _h, _w = x.shape
-        y = torch.nn.LayerNorm([_c, _h, _w])(x)
+        # _n, _c, _h, _w = x.shape
+        # y = torch.nn.LayerNorm([_c, _h, _w])(x)
+        y = self.layer_normal(x)
 
         y = torch.swapaxes(y, -1, -3)
         y = self.linear_1(y)
@@ -200,14 +219,16 @@ class BlockGatingUnit(torch.nn.Module):
     The 'spatial' dim is defined as the **second last**.
     If applied on other dims, you should swapaxes first.
     """
-    def __init__(self, w_size, bias=True):
+    def __init__(self, w_size, in_channel, bias=True):
         super(BlockGatingUnit, self).__init__()
         self.linear = torch.nn.Linear(w_size, w_size, bias=bias)
+        self.layer_normal = LayerNorm(in_channel)
         return
 
     def forward(self, x):
         u, v = x.chunk(2, dim=1)
-        v = torch.nn.LayerNorm([v.shape[1], v.shape[2], v.shape[3]])(v)
+        # v = torch.nn.LayerNorm([v.shape[1], v.shape[2], v.shape[3]])(v)
+        v = self.layer_normal(v)
         v = self.linear(v)
         return u * (v + 1.)
 
@@ -216,9 +237,10 @@ class BlockGatingMLPLayer(torch.nn.Module):
     """Block gMLP layer that performs local mixing of tokens."""
     def __init__(self, in_channel, block_size, bias=True, factor=2., dropout=0.):
         super(BlockGatingMLPLayer, self).__init__()
+        self.layer_normal = LayerNorm(in_channel)
         self.linear_1 = torch.nn.Linear(in_channel, in_channel*factor, bias=bias)
         self.linear_2 = torch.nn.Linear(in_channel, in_channel, bias=bias)
-        self.gating = BlockGatingUnit(block_size[0]*block_size[1])
+        self.gating = BlockGatingUnit(block_size[0]*block_size[1], in_channel)
         self.block_size = block_size
         self.dropout = dropout
         return
@@ -229,7 +251,8 @@ class BlockGatingMLPLayer(torch.nn.Module):
         gh, gw = h // fh, w // fw
         x = block_images_einops(x, patch_size=(fh, fw))
         # MLP2: Local (block) mixing part, provides within-block communication.
-        y = torch.nn.LayerNorm([x.shape[1], x.shape[2], x.shape[3]])(x)
+        # y = torch.nn.LayerNorm([x.shape[1], x.shape[2], x.shape[3]])(x)
+        y = self.layer_normal(x)
         y = torch.swapaxes(y, -1, -3)
         y = self.linear_1(y)
         y = torch.swapaxes(y, -1, -3)
@@ -255,6 +278,7 @@ class ResidualSplitHeadMultiAxisGMLPLayer(torch.nn.Module):
                  bias=True,
                  dropout_rate=0.):
         super(ResidualSplitHeadMultiAxisGMLPLayer, self).__init__()
+        self.layer_normal = LayerNorm(in_channel)
         self.linear1 = torch.nn.Linear(in_channel, in_channel * input_proj_factor, bias=bias)
         self.gridgmlpLayer = GridGlobalMixLayer(in_channel=in_channel,
                                                 grid_size=grid_size,
@@ -272,8 +296,9 @@ class ResidualSplitHeadMultiAxisGMLPLayer(torch.nn.Module):
 
     def forward(self, x, deterministic=True):
         shortcut = x
-        n, num_channels, h, w, = x.shape
-        x = torch.nn.LayerNorm([num_channels, h, w])(x)
+        # n, num_channels, h, w, = x.shape
+        # x = torch.nn.LayerNorm([num_channels, h, w])(x)
+        x = self.layer_normal(x)
         x = torch.swapaxes(x, -1, -3)
         x = self.linear1(x)
         x = torch.swapaxes(x, -1, -3)
@@ -298,6 +323,7 @@ class RDCAB(torch.nn.Module):
     """Residual dense channel attention block. Used in Bottlenecks."""
     def __init__(self, in_channel,features,reduction=16,bias=True,dropout_rate=0.0):
         super(RDCAB, self).__init__()
+        self.layer_normal = LayerNorm(in_channel)
         self.mlp = MLPBlock(in_dim=in_channel,
                              mlp_dim=features,
                              dropout=dropout_rate,
@@ -309,7 +335,8 @@ class RDCAB(torch.nn.Module):
         return
 
     def forward(self, x, deterministic=True):
-        y = torch.nn.LayerNorm([x.shape[1], x.shape[2], x.shape[3]])(x)
+        # y = torch.nn.LayerNorm([x.shape[1], x.shape[2], x.shape[3]])(x)
+        y = self.layer_normal(x)
         y = self.mlp(y)
         y = self.cal(y)
         x = x + y
@@ -428,6 +455,7 @@ class UNetEncoderBlock(torch.nn.Module):
         self.num_groups = num_groups
         self.use_global_mlp = use_global_mlp
         self.downsample = downsample
+        self.use_cross_gating = use_cross_gating
         return
 
     def forward(self, x,
@@ -515,6 +543,7 @@ class GetSpatialGatingWeights(torch.nn.Module):
                  dropout_rate=0.0,
                  bias=True):
         super().__init__()
+        self.layer_normal = LayerNorm(in_channel)
         self.linear1 = torch.nn.Linear(in_channel, in_channel * input_proj_factor, bias=bias)
         self.linear2 = torch.nn.Linear(grid_size[0] * grid_size[1], grid_size[0] * grid_size[1], bias=bias)
         self.linear3 = torch.nn.Linear(block_size[0] * block_size[1], block_size[0] * block_size[1], bias=bias)
@@ -528,7 +557,8 @@ class GetSpatialGatingWeights(torch.nn.Module):
         n, num_channels, h, w = x.shape
 
         # input projection
-        x = torch.nn.LayerNorm([num_channels, h, w])(x)
+        # x = torch.nn.LayerNorm([num_channels, h, w])(x)
+        x = self.layer_normal(x)
         x = torch.swapaxes(x, -1, -3)
         x = self.linear1(x)
         x = torch.swapaxes(x, -1, -3)
@@ -580,6 +610,7 @@ class CrossGatingBlock(torch.nn.Module):
         self.convt_up = conv_trans(in_channel_y, features, bias=bias)
         self.conv1_1 = conv1x1(in_channel_x, features, bias=bias)
         self.conv1_2 = conv1x1(features, features, bias=bias)
+        self.layer_normal1 = LayerNorm(features)
         self.linear1 = torch.nn.Linear(features, features, bias=bias)
         self.getspatialgatingweights1 = GetSpatialGatingWeights(
             in_channel=features,
@@ -587,6 +618,7 @@ class CrossGatingBlock(torch.nn.Module):
             grid_size=grid_size,
             dropout_rate=dropout_rate,
             bias=bias)
+        self.layer_normal2 = LayerNorm(features)
         self.linear2 = torch.nn.Linear(features, features, bias=bias)
         self.getspatialgatingweights2 = GetSpatialGatingWeights(
             in_channel=features,
@@ -609,7 +641,8 @@ class CrossGatingBlock(torch.nn.Module):
         shortcut_y = y
 
         # Get gating weights from X
-        x = torch.nn.LayerNorm([x.shape[1], x.shape[2], x.shape[3]])(x)
+        # x = torch.nn.LayerNorm([x.shape[1], x.shape[2], x.shape[3]])(x)
+        x = self.layer_normal1(x)
         x = torch.swapaxes(x, -1, -3)
         x = self.linear1(x)
         x = torch.swapaxes(x, -1, -3)
@@ -617,7 +650,8 @@ class CrossGatingBlock(torch.nn.Module):
         gx = self.getspatialgatingweights1(x)
 
         # Get gating weights from Y
-        y = torch.nn.LayerNorm([y.shape[1], y.shape[2], y.shape[3]])(y)
+        # y = torch.nn.LayerNorm([y.shape[1], y.shape[2], y.shape[3]])(y)
+        y = self.layer_normal2(y)
         y = torch.swapaxes(y, -1, -3)
         y = self.linear2(y)
         y = torch.swapaxes(y, -1, -3)
@@ -652,6 +686,7 @@ class SAM(torch.nn.Module):
         self.conv3_1 = conv3x3(in_channel, features, bias=bias)
         self.conv3_2 = conv3x3(features, output_channels, bias=bias)
         self.conv3_3 = conv3x3(output_channels, features, bias=bias)
+        self.output_channels = output_channels
         return
 
     def forward(self, x, x_image, *,
@@ -757,6 +792,8 @@ class MAXIM(torch.nn.Module):
         self.depth = depth
         self.grid_size_lr = grid_size_lr
 
+        double_channel = features // 32
+
         for idx_stage in range(num_stages):
             for i in range(num_supervision_scales):
                 conv = conv3x3(
@@ -781,7 +818,7 @@ class MAXIM(torch.nn.Module):
                         setattr(self, f"CGB_{idx_stage}_{i}", CGB)
                     else:
                         if i == 0:
-                            in_channel_tmp = 64
+                            in_channel_tmp = 64 * double_channel
                         else:
                             in_channel_tmp = (2 ** i) * features * 2
                         _tmp = conv1x1(in_channel_tmp, (2 ** i) * features, bias=use_bias)
@@ -852,8 +889,8 @@ class MAXIM(torch.nn.Module):
                 # Use cross-gating to cross modulate features
                 if use_cross_gating:
                     if i == self.depth - 1:
-                        in_channel_x_temp = 384
-                        in_channel_y_temp = 128
+                        in_channel_x_temp = 384 * double_channel
+                        in_channel_y_temp = 128 * double_channel
                     else:
                         in_channel_x_temp = in_channel_x_temp // 2
                         in_channel_y_temp = (2 ** (i + 1)) * features
@@ -870,8 +907,8 @@ class MAXIM(torch.nn.Module):
                     setattr(self, f"stage_{idx_stage}_cross_gating_block_{i}", _CrossGatingBlock)
                 else:
                     if i == self.depth - 1:
-                        in_channel_x_temp = 384
-                        in_channel_y_temp = 64
+                        in_channel_x_temp = 384 * double_channel
+                        in_channel_y_temp = 64 * double_channel
                     else:
                         in_channel_x_temp = in_channel_x_temp // 2
                         in_channel_y_temp = (2 ** (i + 1)) * features
@@ -880,18 +917,16 @@ class MAXIM(torch.nn.Module):
                     _tmp = conv3x3((2 ** i) * features, (2 ** i) * features, bias=use_bias)
                     setattr(self, f"stage_{idx_stage}_cross_gating_block_no_use_cross_gating_conv33_{i}", _tmp)
 
+            in_channel_temp_UDB_skip = 384 * double_channel
             # start decoder. Multi-scale feature fusion of cross-gated features
             for i in reversed(range(depth)):
                 # use larger blocksize at high-res stages
                 block_size = block_size_hr if i < high_res_stages else block_size_lr
                 grid_size = grid_size_hr if i < high_res_stages else block_size_lr
 
-                in_channel_temp_UDB = 128
-                in_channel_temp_UDB_skip = 384
-                in_channel_temp = 128
                 for j in range(depth):
                     if j == 0:
-                        in_channel_temp = 128
+                        in_channel_temp = 128 * double_channel
                     else:
                         in_channel_temp = in_channel_temp // 2
                     _UpSampleRatio = UpSample(
@@ -901,8 +936,8 @@ class MAXIM(torch.nn.Module):
                         use_bias=use_bias)
                     setattr(self, f"UpSampleRatio_skip_signals_{idx_stage}_{i}_{j}", _UpSampleRatio)
                 if i == self.depth - 1:
-                    in_channel_temp_UDB = 128
-                    in_channel_temp_UDB_skip = 384
+                    in_channel_temp_UDB = 128 * double_channel
+                    in_channel_temp_UDB_skip = 384 * double_channel
                 else:
                     in_channel_temp_UDB = (2 ** (i + 1)) * features
                     in_channel_temp_UDB_skip = in_channel_temp_UDB_skip // 2
@@ -945,8 +980,8 @@ class MAXIM(torch.nn.Module):
             new_w = int(w // self.grid_size_lr[1]) * self.grid_size_lr[1] + self.grid_size_lr[1]
             offset_w = new_w - w
             offset_h = new_h - h
-            like_x = torch.zeros((n, c, new_h, new_h), dtype=x.dtype, device=x.device)
-            like_x[:, :, offset_h//2:new_h-offset_h//2, offset_w//2:new_w-offset_w//2] = x
+            like_x = torch.zeros((n, c, new_h, new_w), dtype=x.dtype, device=x.device)
+            like_x[:, :, offset_h//2:new_h-(offset_h-offset_h//2), offset_w//2:new_w-(offset_w-offset_w//2)] = x
             x = like_x
             n, c, h, w = x.shape
 
@@ -1053,7 +1088,14 @@ class MAXIM(torch.nn.Module):
 
             # Store outputs
             outputs_all.append(outputs)
-        return outputs_all
+
+        output = outputs_all[-1][-1]
+
+        if offset_w == 0 and offset_h == 0:
+            return output
+
+        n, c, h, w = output.shape
+        return output[:, :, offset_h // 2:h - (offset_h - offset_h // 2), offset_w // 2:w - (offset_w - offset_w // 2)]
 
 
 @BUILD_NETWORK_REGISTRY.register()
