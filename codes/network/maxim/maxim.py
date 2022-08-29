@@ -791,7 +791,9 @@ class MAXIM(torch.nn.Module):
         self.num_bottleneck_blocks = num_bottleneck_blocks
         self.depth = depth
         self.grid_size_lr = grid_size_lr
+        self.grid_size_hr = grid_size_hr
 
+        assert (self.grid_size_hr[0] // self.grid_size_lr[0]) % 2 == 0, 'the grid_size_hr{} and grid_size_lr {} must be multiply of 8'.format(grid_size_hr, grid_size_lr)
         double_channel = features // 32
 
         for idx_stage in range(num_stages):
@@ -971,19 +973,24 @@ class MAXIM(torch.nn.Module):
                         _Conv3x3 = conv3x3((2 ** i) * features, num_outputs, bias=use_bias)
                         setattr(self, f"stage_{idx_stage}_output_conv_{i}", _Conv3x3)
 
-    def forward(self, x, *, train: bool = False):
+    def adjust_img_hw(self, x):
         n, c, h, w, = x.shape  # input image shape
         offset_w = 0
         offset_h = 0
-        if h % self.grid_size_lr[0] != 0 and w % self.grid_size_lr[1] != 0:
-            new_h = int(h // self.grid_size_lr[0]) * self.grid_size_lr[0] + self.grid_size_lr[0]
-            new_w = int(w // self.grid_size_lr[1]) * self.grid_size_lr[1] + self.grid_size_lr[1]
+        if h % self.grid_size_hr[0] != 0 and w % self.grid_size_hr[1] != 0:
+            new_h = int(h // self.grid_size_hr[0]) * self.grid_size_hr[0] + self.grid_size_hr[0]
+            new_w = int(w // self.grid_size_hr[1]) * self.grid_size_hr[1] + self.grid_size_hr[1]
             offset_w = new_w - w
             offset_h = new_h - h
             like_x = torch.zeros((n, c, new_h, new_w), dtype=x.dtype, device=x.device)
             like_x[:, :, offset_h//2:new_h-(offset_h-offset_h//2), offset_w//2:new_w-(offset_w-offset_w//2)] = x
-            x = like_x
-            n, c, h, w = x.shape
+            del x
+            return like_x, offset_w, offset_h
+        return x, offset_w, offset_h
+
+    def forward(self, x, *, train: bool = False):
+        x, offset_w, offset_h = self.adjust_img_hw(x)
+        n, c, h, w, = x.shape  # input image shape
 
         shortcuts = []
         shortcuts.append(x)
