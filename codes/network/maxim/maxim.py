@@ -792,6 +792,7 @@ class MAXIM(torch.nn.Module):
         self.depth = depth
         self.grid_size_lr = grid_size_lr
         self.grid_size_hr = grid_size_hr
+        self.depth = depth
 
         assert (self.grid_size_hr[0] // self.grid_size_lr[0]) % 2 == 0, 'the grid_size_hr{} and grid_size_lr {} must be multiply of 8'.format(grid_size_hr, grid_size_lr)
         double_channel = features // 32
@@ -977,9 +978,14 @@ class MAXIM(torch.nn.Module):
         n, c, h, w, = x.shape  # input image shape
         offset_w = 0
         offset_h = 0
-        if h % self.grid_size_hr[0] != 0 and w % self.grid_size_hr[1] != 0:
-            new_h = int(h // self.grid_size_hr[0]) * self.grid_size_hr[0] + self.grid_size_hr[0]
-            new_w = int(w // self.grid_size_hr[1]) * self.grid_size_hr[1] + self.grid_size_hr[1]
+        down_h = h // (2 ** (self.depth-1))
+        down_w = w // (2 ** (self.depth-1))
+
+        if down_h % self.grid_size_hr[0] != 0 and down_w % self.grid_size_hr[1] != 0:
+            new_h = int(down_h // self.grid_size_hr[0]) * self.grid_size_hr[0] + self.grid_size_hr[0]
+            new_w = int(down_w // self.grid_size_hr[1]) * self.grid_size_hr[1] + self.grid_size_hr[1]
+            new_w = new_w * (2 ** (self.depth-1))
+            new_h = new_h * (2 ** (self.depth-1))
             offset_w = new_w - w
             offset_h = new_h - h
             like_x = torch.zeros((n, c, new_h, new_w), dtype=x.dtype, device=x.device)
