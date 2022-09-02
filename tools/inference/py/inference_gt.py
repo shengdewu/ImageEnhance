@@ -9,6 +9,7 @@ import os
 import tqdm
 from codes.data.fn.collate_fn import fromlist
 from codes.train.train_fn import save_image
+import math
 
 
 class InferenceGt:
@@ -59,14 +60,22 @@ class InferenceGt:
             real = data["input"].to(self.device)
 
             with torch.no_grad():
-                enhance_img, cure_param = self.model.generator(real)
+                enhance_img = self.model.generator(real)
+            if isinstance(enhance_img, list) or isinstance(enhance_img, tuple):
+                enhance_img = enhance_img[0]
 
+            psnr = 'none'
             if 'expert' in data.keys():
                 img_sample = torch.cat((real, enhance_img, data["expert"].to(self.device)), -1)
+                fake = torch.round(enhance_img * self.unnormalizing_value)
+                expert = torch.round(data["expert"].to(self.device) * self.unnormalizing_value)
+                mse = self.criterion_pixel_wise(fake, expert)
+                mse = torch.clip(mse, 0.00000001, 4294967296.0)
+                psnr = int(10.0 * math.log10(float(self.unnormalizing_value) * self.unnormalizing_value / mse.item()))
             else:
                 img_sample = torch.cat((real, enhance_img), -1)
 
-            save_image(img_sample, '{}/{}'.format(output, input_name), unnormalizing_value=self.unnormalizing_value, nrow=1, normalize=False)
+            save_image(img_sample, '{}/{}-{}'.format(output, psnr, input_name), unnormalizing_value=self.unnormalizing_value, nrow=1, normalize=False)
 
         return
 

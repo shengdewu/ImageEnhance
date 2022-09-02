@@ -1,4 +1,5 @@
 import os
+import random
 
 
 def search_files(root, txt, skip_name):
@@ -17,5 +18,5 @@ def search_files(root, txt, skip_name):
         if not os.path.exists(b_input) or not os.path.exists(b_expert):
             continue
         file_names.append((b_input, b_expert))
-
+    random.shuffle(file_names)
     return file_names
