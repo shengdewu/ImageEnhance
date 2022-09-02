@@ -23,7 +23,7 @@ class Saturation:
     """
 
     def __init__(self, f_min=0.8, f_max=1.6, step=0.05, log_name=''):
-        self.factor = range_float(f_min, f_max, step=step, exclude=1.0)
+        self.factor = range_float(f_min, f_max, step=step, exclude=f_max+1.0)
         logging.getLogger(log_name).info('{}/{}'.format(self.__class__, self.factor))
         return
 
@@ -37,7 +37,7 @@ class Saturation:
 
 class Brightness:
     def __init__(self, f_min=0.6, f_max=1.1, step=0.05, log_name=''):
-        self.factor = range_float(f_min, f_max, step=step, exclude=1.0)
+        self.factor = range_float(f_min, f_max, step=step, exclude=f_max+1.0)
         logging.getLogger(log_name).info('{}/{}'.format(self.__class__, self.factor))
         return
 
@@ -55,7 +55,7 @@ class Contrast:
     """
 
     def __init__(self, f_min=0.6, f_max=1.2, step=0.05, log_name=''):
-        self.factor = range_float(f_min, f_max, step=step, exclude=1.0)
+        self.factor = range_float(f_min, f_max, step=step, exclude=f_max+1.0)
         logging.getLogger(log_name).info('{}/{}'.format(self.__class__, self.factor))
         return
 
@@ -85,7 +85,7 @@ class Hue:
     def __init__(self, f_min=-0.5, f_max=0.5, step=0.05, log_name=''):
         f_min = f_min if f_min > -0.5 else -0.5
         f_max = f_max if f_max < 0.5 else 0.5
-        self.factor = range_float(f_min, f_max, step=step, exclude=0.0)
+        self.factor = range_float(f_min, f_max, step=step, exclude=f_max+1.)
         logging.getLogger(log_name).info('{}/{}'.format(self.__class__, self.factor))
         return
 
@@ -120,7 +120,7 @@ class ColorTemperature:
 
 class AdaptiveLight:
     def __init__(self, f_min=0.6, f_max=1.1, step=0.05, log_name=''):
-        self.factor = range_float(f_min, f_max, step=step, exclude=1.0)
+        self.factor = range_float(f_min, f_max, step=step, exclude=f_max+1.0)
         logging.getLogger(log_name).info('{}/{}'.format(self.__class__, self.factor))
         return
 
@@ -188,7 +188,7 @@ class ColorJitter:
                                                  step=cfg.COLOR_TEMPERATURE.STEP,
                                                  f_max=cfg.COLOR_TEMPERATURE.MAX,
                                                  mid_step=cfg.COLOR_TEMPERATURE.MID_STEP,
-                                                 log_name=cfg.OUTPUT_LOG_NAME)
+                                                 log_name=log_name)
             self.color_augmentation.append(color_temperature)
             if cfg.COLOR_TEMPERATURE.get('COMPOSE', False):
                 self.compose_augmentation.append(color_temperature)
