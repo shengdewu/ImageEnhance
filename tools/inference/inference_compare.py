@@ -1,7 +1,7 @@
 import os
 from .load_inference_config import merge_config
-from .py.inference_gt import InferenceNoneGt
-from .py.inference_gt_old import InferenceNoneGtOld
+from .py.inference import Inference
+from .py.inference_gt import InferenceGt
 import torch
 from . import compare_tool
 from .py import curl_onnx as curl_onnx
@@ -18,7 +18,7 @@ def execute_and_compare(dir_names, compare_names, compare_base_path=None, use_on
         onnx_tool.to_onnx(cfg.MODEL.WEIGHTS, cfg.MODEL.NETWORK.CURL_NET, onnx_save_path, input_size=input_size, log_name=cfg.OUTPUT_LOG_NAME)
         inference_tool = onnx_tool.load_onnx(onnx_save_path)
     else:
-        inference_tool = InferenceNoneGt(cfg, tif=False)
+        inference_tool = Inference(cfg, tif=False)
         inference_tool.resume_or_load()
 
     compare_cls = compare_tool.CompareRow()
@@ -70,3 +70,10 @@ def execute_and_compare(dir_names, compare_names, compare_base_path=None, use_on
             print('{} no item'.format(base_path))
             continue
         compare_cls.compare(base_path=base_path, compare_paths=compare_paths, out_path=out_path, skip=True, special_name=special_name)
+
+
+def execute_gt():
+    cfg = merge_config(use_model_config=True)
+    inference_tool = InferenceGt(cfg, is_tif=False)
+    inference_tool.resume_or_load()
+    inference_tool.loop(cfg, skip=True)
