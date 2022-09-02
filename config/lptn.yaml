@@ -53,7 +53,7 @@ INPUT:
       MAX: 1.15
       MIN: 0.8
       STEP: 0.05
-    COLORTEMPERATURE:
+    COLOR_TEMPERATURE:
       ENABLED: true
       MAX: 26000
       MID: 12000

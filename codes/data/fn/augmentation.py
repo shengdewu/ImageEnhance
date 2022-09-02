@@ -10,17 +10,18 @@ import random
 
 def range_float(start, end, step, exclude):
     assert start <= end
-    if step >= 1 and int(step*10) == (step // 1)*10:
-        return [i for i in np.arange(int(start), int(end+1), step=int(step)) if i != int(exclude)]
+    if step >= 1 and int(step * 10) == (step // 1) * 10:
+        return [i for i in np.arange(int(start), int(end + 1), step=int(step)) if i != int(exclude)]
     else:
         base = pow(10, len(str(step).split('.')[1]))
-        return [i/base for i in np.arange(int(start*base), int(end*base+1), step=int(step*base)) if i != int(exclude*base)]
+        return [i / base for i in np.arange(int(start * base), int(end * base + 1), step=int(step * base)) if i != int(exclude * base)]
 
 
 class Saturation:
     """
     调整图像的饱和度, 0.0 黑白图
     """
+
     def __init__(self, f_min=0.8, f_max=1.6, step=0.05, log_name=''):
         self.factor = range_float(f_min, f_max, step=step, exclude=1.0)
         logging.getLogger(log_name).info('{}/{}'.format(self.__class__, self.factor))
@@ -52,6 +53,7 @@ class Contrast:
     """
     调整图像的对比度
     """
+
     def __init__(self, f_min=0.6, f_max=1.2, step=0.05, log_name=''):
         self.factor = range_float(f_min, f_max, step=step, exclude=1.0)
         logging.getLogger(log_name).info('{}/{}'.format(self.__class__, self.factor))
@@ -67,7 +69,7 @@ class Contrast:
 
 class HighLight:
     def __init__(self, f_min=30, f_max=50, step=10, log_name=''):
-        self.random_factor = range_float(start=f_min, end=f_max, step=step, exclude=f_max+1)
+        self.random_factor = range_float(start=f_min, end=f_max, step=step, exclude=f_max + 1)
         logging.getLogger(log_name).info('{}/{}'.format(self.__class__, self.random_factor))
         return
 
@@ -96,9 +98,12 @@ class Hue:
 
 
 class ColorTemperature:
-    def __init__(self, f_min=2000, f_max=40000, step=600, log_name=''):
+    def __init__(self, f_min=2000, f_max=40000, step=600, f_mid=None, mid_step=None, log_name=''):
         self.table = KelvinToRGBTable()
-        self.kelvins = range_float(start=f_min, end=f_max, step=step, exclude=f_max + 600)
+        f_mid = f_max if f_mid is None else f_mid
+        self.kelvins = range_float(start=f_min, end=f_mid, step=step, exclude=f_mid + 100)
+        if f_max > f_mid:
+            self.kelvins.extend(range_float(start=f_mid + mid_step, end=f_max, step=mid_step, exclude=f_max + 600))
         logging.getLogger(log_name).info('{}/{}'.format(self.__class__, self.kelvins))
         return
 
@@ -134,45 +139,80 @@ class AdaptiveLight:
 
 class ColorJitter:
 
-    def __init__(self, cfg, log_name):
-        self.method = list()
+    def __init__(self, cfg, color_prob=0., compose_color_prob=0., log_name=''):
+
+        self.color_augmentation_prob = color_prob
+        self.color_augmentation = list()
+
+        self.compose_color_augmentation_prob = compose_color_prob
+        self.compose_augmentation = list()
 
         if cfg.get('BRIGHTNESS', None) is not None and cfg.BRIGHTNESS.ENABLE:
-            self.method.append(Brightness(f_min=cfg.BRIGHTNESS.MIN, f_max=cfg.BRIGHTNESS.MAX, step=cfg.BRIGHTNESS.get('STEP', 0.05), log_name=log_name))
+            brightness = Brightness(f_min=cfg.BRIGHTNESS.MIN, f_max=cfg.BRIGHTNESS.MAX, step=cfg.BRIGHTNESS.get('STEP', 0.05), log_name=log_name)
+            self.color_augmentation.append(brightness)
+            if cfg.BRIGHTNESS.get('COMPOSE', False):
+                self.compose_augmentation.append(brightness)
+                logging.getLogger(log_name).info("add compose: {}".format(brightness.__class__))
 
         if cfg.get('SATURATION', None) is not None and cfg.SATURATION.ENABLE:
-            self.method.append(Saturation(f_min=cfg.SATURATION.MIN, f_max=cfg.SATURATION.MAX, step=cfg.SATURATION.get('STEP', 0.05), log_name=log_name))
+            saturation = Saturation(f_min=cfg.SATURATION.MIN, f_max=cfg.SATURATION.MAX, step=cfg.SATURATION.get('STEP', 0.05), log_name=log_name)
+            self.color_augmentation.append(saturation)
+            if cfg.SATURATION.get('COMPOSE', False):
+                self.compose_augmentation.append(saturation)
+                logging.getLogger(log_name).info("add compose: {}".format(saturation.__class__))
 
         if cfg.get('CONTRAST', None) is not None and cfg.CONTRAST.ENABLE:
-            self.method.append(Contrast(f_min=cfg.CONTRAST.MIN, f_max=cfg.CONTRAST.MAX, step=cfg.CONTRAST.get('STEP', 0.05), log_name=log_name))
+            contrast = Contrast(f_min=cfg.CONTRAST.MIN, f_max=cfg.CONTRAST.MAX, step=cfg.CONTRAST.get('STEP', 0.05), log_name=log_name)
+            self.color_augmentation.append(contrast)
+            if cfg.CONTRAST.get('COMPOSE', False):
+                self.compose_augmentation.append(contrast)
+                logging.getLogger(log_name).info("add compose: {}".format(contrast.__class__))
 
         if cfg.get('HIGH_LIGHT', None) is not None and cfg.HIGH_LIGHT.ENABLED:
-            self.method.append(HighLight(f_min=cfg.HIGH_LIGHT.MIN, f_max=cfg.HIGH_LIGHT.MAX, step=cfg.HIGH_LIGHT.STEP, log_name=log_name))
-
-        if cfg.get('SHADOW', None) is not None and cfg.SHADOW.ENABLED:
-            self.method.append(HighLight(f_min=cfg.SHADOW.MIN, f_max=cfg.SHADOW.MAX, step=cfg.SHADOW.STEP, log_name=log_name))
+            high_light = HighLight(f_min=cfg.HIGH_LIGHT.MIN, f_max=cfg.HIGH_LIGHT.MAX, step=cfg.HIGH_LIGHT.STEP, log_name=log_name)
+            self.color_augmentation.append(high_light)
+            if cfg.HIGH_LIGHT.get('COMPOSE', False):
+                self.compose_augmentation.append(high_light)
+                logging.getLogger(log_name).info("add compose: {}".format(high_light.__class__))
 
         if cfg.get('HUE', None) is not None and cfg.HUE.ENABLE:
-            self.method.append(Hue(f_min=cfg.HUE.MIN, f_max=cfg.HUE.MAX, step=cfg.HUE.get('STEP', 0.05), log_name=log_name))
+            hue = Hue(f_min=cfg.HUE.MIN, f_max=cfg.HUE.MAX, step=cfg.HUE.get('STEP', 0.05), log_name=log_name)
+            self.color_augmentation.append(hue)
+            if cfg.HUE.get('COMPOSE', False):
+                self.compose_augmentation.append(hue)
+                logging.getLogger(log_name).info("add compose: {}".format(hue.__class__))
 
-        if cfg.get('COLORTEMPERATURE', None) is not None and cfg.COLORTEMPERATURE.ENABLED:
-            self.method.append(ColorTemperature(f_min=cfg.COLORTEMPERATURE.MIN,
-                                                f_max=cfg.COLORTEMPERATURE.MID,
-                                                step=cfg.COLORTEMPERATURE.STEP,
-                                                log_name=log_name))
-            if cfg.COLORTEMPERATURE.MAX > cfg.COLORTEMPERATURE.MID:
-                self.method.append(ColorTemperature(f_min=cfg.COLORTEMPERATURE.MID,
-                                                    f_max=cfg.COLORTEMPERATURE.MAX,
-                                                    step=cfg.COLORTEMPERATURE.MID_STEP,
-                                                    log_name=log_name))
+        if cfg.get('COLOR_TEMPERATURE', None) is not None and cfg.COLOR_TEMPERATURE.ENABLED:
+            color_temperature = ColorTemperature(f_min=cfg.COLOR_TEMPERATURE.MIN,
+                                                 f_mid=cfg.COLOR_TEMPERATURE.MID,
+                                                 step=cfg.COLOR_TEMPERATURE.STEP,
+                                                 f_max=cfg.COLOR_TEMPERATURE.MAX,
+                                                 mid_step=cfg.COLOR_TEMPERATURE.MID_STEP,
+                                                 log_name=cfg.OUTPUT_LOG_NAME)
+            self.color_augmentation.append(color_temperature)
+            if cfg.COLOR_TEMPERATURE.get('COMPOSE', False):
+                self.compose_augmentation.append(color_temperature)
+                logging.getLogger(log_name).info("add compose: {}".format(color_temperature.__class__))
 
         if cfg.get('ADAPTIVE_LIGHT', None) is not None and cfg.ADAPTIVE_LIGHT.ENABLED:
-            self.method.append(AdaptiveLight(f_min=cfg.ADAPTIVE_LIGHT.MIN,
-                                             f_max=cfg.ADAPTIVE_LIGHT.MAX,
-                                             step=cfg.ADAPTIVE_LIGHT.get('STEP', 0.05),
-                                             log_name=log_name))
+            adaptive_light = AdaptiveLight(f_min=cfg.ADAPTIVE_LIGHT.MIN,
+                                           f_max=cfg.ADAPTIVE_LIGHT.MAX,
+                                           step=cfg.ADAPTIVE_LIGHT.get('STEP', 0.05),
+                                           log_name=log_name)
+            self.color_augmentation.append(adaptive_light)
+            if cfg.ADAPTIVE_LIGHT.get('COMPOSE', False):
+                self.compose_augmentation.append(adaptive_light)
+                logging.getLogger(log_name).info("add compose: {}".format(adaptive_light.__class__))
 
-        self.method_id = [i for i in range(len(self.method))]
+        if len(self.compose_augmentation) < 2:
+            self.compose_color_augmentation_prob = 0.
+        if len(self.color_augmentation) <= 0:
+            self.color_augmentation_prob = 0.
+
+        logging.getLogger(log_name).info('{}: color prob:{}, compose color prob:{}'.format(
+            self.__class__,
+            self.color_augmentation_prob,
+            self.compose_color_augmentation_prob))
         return
 
     def __call__(self, image, factor=None):
@@ -183,9 +223,15 @@ class ColorJitter:
         Returns:
             PIL Image or Tensor: Color jittered image.
         """
+        if random.random() < self.color_augmentation_prob:
+            aug = random.choice(self.color_augmentation)
+            return aug(image, factor=factor)
 
-        method_id = random.choice(self.method_id)
-        return self.method[method_id](image, factor=factor)
+        if random.random() < self.compose_color_augmentation_prob:
+            for aug in self.compose_augmentation:
+                image = aug(image, factor=factor)
+
+        return image
 
     def __str__(self):
         return 'ColorJitter'

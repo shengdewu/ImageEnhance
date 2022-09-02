@@ -19,7 +19,7 @@ INPUT:
 #      MAX: 1.15
 #      MIN: 0.8
 #      STEP: 0.05
-#    COLORTEMPERATURE:
+#    COLOR_TEMPERATURE:
 #      ENABLED: false
 #      MAX: 26000
 #      MID: 12000
@@ -47,11 +47,6 @@ INPUT:
 #      MAX: 1.4
 #      MIN: 0.6
 #      STEP: 0.1
-#    SHADOW:
-#      ENABLED: false
-#      MAX: -10
-#      MIN: -45
-#      STEP: 5
   DOWN_FACTOR: 1
   FLIP:
     RATION: 0.05

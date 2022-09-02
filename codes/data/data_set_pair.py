@@ -20,9 +20,10 @@ class ImageDatasetPaired(ImageDataSet):
 
         self.flip_ration = cfg.INPUT.FLIP.RATION
 
-        self.color_jitter = augmentation.ColorJitter(cfg.INPUT.COLOR_JITTER, cfg.OUTPUT_LOG_NAME)
-
-        self.color_jitter_prob = cfg.INPUT.COLOR_JITTER.PROB
+        self.color_jitter = augmentation.ColorJitter(cfg.INPUT.COLOR_JITTER,
+                                                     color_prob=cfg.INPUT.COLOR_JITTER.PROB,
+                                                     compose_color_prob=cfg.INPUT.COLOR_JITTER.get('COMPOSE_PROB', 0),
+                                                     log_name=cfg.OUTPUT_LOG_NAME)
 
         self.input_over_exposure_enable = False
         if cfg.INPUT.get('INPUT_OVER_EXPOSURE', None) is not None:
@@ -69,8 +70,7 @@ class ImageDatasetPaired(ImageDataSet):
             if self.input_over_exposure_enable:
                 img_input = self.input_over_exposure(img_input, img_expert)
 
-            if np.random.random() < self.color_jitter_prob:
-                img_input = self.color_jitter(img_input)
+            img_input = self.color_jitter(img_input)
 
             if self.color_jitter_train:
                 img_expert = self.train_gt_aug(img_expert)

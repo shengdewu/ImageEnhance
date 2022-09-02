@@ -18,13 +18,13 @@ INPUT:
       MAX: 1.15
       MIN: 0.8
       STEP: 0.05
-    COLORTEMPERATURE:
+    COLOR_TEMPERATURE:
       ENABLED: false
-      MAX: 26000
-      MID: 12000
-      MID_STEP: 600
-      MIN: 8000
-      STEP: 100
+      MAX: 20000
+      MID: 6000
+      MID_STEP: 1000
+      MIN: 2000
+      STEP: 500
     CONTRAST:
       ENABLE: false
       MAX: 1.4
@@ -32,8 +32,8 @@ INPUT:
       STEP: 0.1
     HIGH_LIGHT:
       ENABLED: false
-      MAX: 55
-      MIN: 20
+      MAX: 40
+      MIN: -40
       STEP: 5
     HUE:
       ENABLE: false
@@ -41,16 +41,12 @@ INPUT:
       MIN: -0.5
       STEP: 0.05
     PROB: 0.
+    COMPOSE_PROB: 0.
     SATURATION:
       ENABLE: false
       MAX: 1.4
       MIN: 0.6
       STEP: 0.1
-    SHADOW:
-      ENABLED: false
-      MAX: -10
-      MIN: -45
-      STEP: 5
   DOWN_FACTOR: 1
   FLIP:
     RATION: 0.05

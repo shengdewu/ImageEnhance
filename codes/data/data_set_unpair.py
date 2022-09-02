@@ -12,9 +12,10 @@ class ImageDataSetTuUnpaired(ImageDataSet):
         super(ImageDataSetTuUnpaired, self).__init__(cfg, mode)
 
         self.flip_ration = cfg.INPUT.FLIP.RATION
-        self.color_jitter = augmentation.ColorJitter(cfg.INPUT.COLOR_JITTER, cfg.OUTPUT_LOG_NAME)
-        self.color_jitter_prob = cfg.INPUT.COLOR_JITTER.PROB
-
+        self.color_jitter = augmentation.ColorJitter(cfg.INPUT.COLOR_JITTER,
+                                                     color_prob=cfg.INPUT.COLOR_JITTER.PROB,
+                                                     compose_color_prob=cfg.INPUT.COLOR_JITTER.get('COMPOSE_PROB', 0),
+                                                     log_name=cfg.OUTPUT_LOG_NAME)
         return
 
     def __getitem__(self, index):
@@ -52,8 +53,7 @@ class ImageDataSetTuUnpaired(ImageDataSet):
         img_expt_b = tif_opt.to_tensor(img_expt_b)
 
         if self.mode == 'train':
-            if random.random() < self.color_jitter_prob:
-                img_input = self.color_jitter(img_input)
+            img_input = self.color_jitter(img_input)
 
         return {'A_input': img_input, 'A_exptC': img_expt_a, 'B_exptC': img_expt_b, 'name': img_name}
 
