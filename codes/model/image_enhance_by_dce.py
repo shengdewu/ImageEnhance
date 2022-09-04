@@ -70,7 +70,7 @@ class DceModel(ZeroDceModel):
             return self.g_model(data.to(self.device, non_blocking=True))
 
         input_data = data.to(self.device, non_blocking=True)
-        input_lap, _ = self.pyramid_decom(input_data)
-        low_res = self.g_model(input_lap[-1])
+        input_lap, _ = self.pyramid.pyramid_decompose(input_data)
+        low_res, cure_param = self.g_model(input_lap[-1])
         input_lap[-1] = low_res
-        return self.pyramid_recons(input_lap)
+        return self.pyramid.pyramid_recompose(input_lap), cure_param
