@@ -1,0 +1,343 @@
+import torch
+import torch.nn.functional as tnf
+import einops
+
+
+def conv3x3(in_channels, out_channels, bias=True):
+    return torch.nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=bias)
+
+
+def conv1x1(in_channels, out_channels, bias=True):
+    return torch.nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=bias)
+
+
+def conv_trans(in_channels, out_channels, bias=True):
+    return torch.nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2, padding=0, bias=bias)
+
+
+def conv_down(in_channels, out_channels, bias=True):
+    return torch.nn.Conv2d(in_channels, out_channels, kernel_size=4, stride=2, padding=1, bias=bias)
+
+
+def to_nhwc(x):
+    return einops.rearrange(x, 'n c h w -> n h w c')
+
+
+def to_nchw(x):
+    return einops.rearrange(x, 'n h w c -> n c h w')
+
+
+class LayerNorm(torch.nn.Module):
+    def __init__(self, normalized_shape, eps: float = 1e-5, elementwise_affine: bool = True, device=None, dtype=None):
+        super(LayerNorm, self).__init__()
+        self.layer_norm = torch.nn.LayerNorm(normalized_shape, eps, elementwise_affine, device, dtype)
+        return
+
+    def forward(self, x):
+        x = to_nhwc(x)
+        x = self.layer_norm(x)
+        return to_nchw(x)
+
+
+class UpSample(torch.nn.Module):
+    def __init__(self, in_dim, out_dim, use_bias=True):
+        super(UpSample, self).__init__()
+        self.conv = conv1x1(in_dim, out_dim, bias=use_bias)
+        return
+
+    def forward(self, x, size):
+        """
+        size = h, w
+        """
+        x = tnf.interpolate(x, size=size, mode='bilinear', align_corners=True)
+        return self.conv(x)
+
+
+class MLPBlock(torch.nn.Module):
+    def __init__(self, in_dim, mlp_dim, dropout=0.0, use_bias=True):
+        super(MLPBlock, self).__init__()
+        self.mlp = torch.nn.Sequential(
+            torch.nn.Linear(in_dim, mlp_dim, bias=use_bias),
+            torch.nn.GELU(),
+            torch.nn.Dropout(p=dropout),
+            torch.nn.Linear(mlp_dim, in_dim, bias=use_bias)
+        )
+        return
+
+    def forward(self, x):
+        x = to_nhwc(x)
+        x = self.mlp(x)
+        return to_nchw(x)
+
+
+class ChannelAttentionLayer(torch.nn.Module):
+    """
+        Squeeze-and-excitation block for channel attention
+        ref: https://arxiv.org/abs/1709.01507
+    """
+    def __init__(self, in_dim, out_dim, reduction=4, use_bias=True):
+        super(ChannelAttentionLayer, self).__init__()
+
+        self.mlp = torch.nn.Sequential(
+            conv1x1(in_dim, out_dim // reduction, bias=use_bias),
+            torch.nn.ReLU(),
+            conv1x1(out_dim // reduction, in_dim, bias=use_bias)
+        )
+
+        self.sigmoid = torch.nn.Sigmoid()
+        return
+
+    def forward(self, x):
+        y = torch.mean(x, dim=[2, 3], keepdim=True)
+        y = self.mlp(y)
+        return x * self.sigmoid(y)
+
+
+class ResidualChannelAttentionBlock(torch.nn.Module):
+    """
+    Residual channel attention block. Contains LN,Conv,lRelu,Conv,SELayer
+    """
+    def __init__(self, in_dim, reduction=4, relu_slope=0.2, use_bias=True):
+        super(ResidualChannelAttentionBlock, self).__init__()
+
+        self.block = torch.nn.Sequential(
+            conv3x3(in_dim, in_dim, bias=use_bias),
+            torch.nn.LeakyReLU(negative_slope=relu_slope),
+            conv3x3(in_dim, in_dim, bias=use_bias),
+            ChannelAttentionLayer(in_dim, in_dim, reduction, use_bias)
+        )
+
+        self.layer_norm = LayerNorm(in_dim)
+        return
+
+    def forward(self, x):
+        short_cut = x
+        x = self.layer_norm(x)
+        return short_cut + self.block(x)
+
+
+class ResidualDenseChannelAttentionBlock(torch.nn.Module):
+    """Residual dense channel attention block. Used in Bottlenecks."""
+    def __init__(self, in_channel,features,reduction=16,bias=True,dropout_rate=0.0):
+        super(ResidualDenseChannelAttentionBlock, self).__init__()
+        self.layer_normal = LayerNorm(in_channel)
+        self.mlp = MLPBlock(in_dim=in_channel,
+                             mlp_dim=features,
+                             dropout=dropout_rate,
+                             use_bias=bias)
+        self.cal = ChannelAttentionLayer(in_dim=in_channel,
+                                         out_dim=features,
+                                         reduction=reduction,
+                                         use_bias=bias)
+        return
+
+    def forward(self, x, deterministic=True):
+        # y = torch.nn.LayerNorm([x.shape[1], x.shape[2], x.shape[3]])(x)
+        y = self.layer_normal(x)
+        y = self.mlp(y)
+        y = self.cal(y)
+        x = x + y
+        return x
+
+
+class BottleneckBlock(torch.nn.Module):
+    def __init__(self, in_channel,
+                 features,
+                 num_groups=1,
+                 channels_reduction=4,
+                 dropout_rate=0.0,
+                 bias=True):
+        super().__init__()
+
+        self.conv1 = conv1x1(in_channel, features, bias=bias)
+        for idx in range(num_groups):
+            rdcab = ResidualDenseChannelAttentionBlock(
+                in_channel=in_channel,
+                features=features,
+                reduction=channels_reduction,
+                bias=bias,
+                dropout_rate=dropout_rate)
+            setattr(self, 'rdcab_{}'.format(idx), rdcab)
+
+        self.num_groups = num_groups
+        return
+
+    def forward(self, x):
+        """Applies the Mixer block to inputs."""
+        assert x.ndim == 4  # Input has shape [batch, c,h, w]
+        # input projection
+        x = self.conv1(x)
+        shortcut_long = x
+
+        for i in range(self.num_groups):
+            # Channel-mixing part, which provides within-patch communication.
+            x = getattr(self, 'rdcab_{}'.format(i))(x)
+        # long skip-connect
+        x = x + shortcut_long
+        return x
+
+
+class UNetEncoderBlock(torch.nn.Module):
+    def __init__(self, in_channel,
+                 skip_channel,
+                 features,
+                 num_groups=1,
+                 relu_slope=0.2,
+                 channels_reduction=4,
+                 down_sample=True,
+                 bias=True):
+        super().__init__()
+        self.conv1 = conv1x1(in_channel+skip_channel, features, bias=bias)
+        for idx in range(num_groups):
+            rcab = ResidualChannelAttentionBlock(
+                in_dim=features,
+                reduction=channels_reduction,
+                relu_slope=relu_slope,
+                use_bias=bias)
+            setattr(self, 'rcab_{}'.format(idx), rcab)
+
+        self.num_groups = num_groups
+        if down_sample:
+            cd = conv_down(features, features, bias=bias)
+            setattr(self, 'conv_down', cd)
+        return
+
+    def forward(self, x, skip=None):
+        if skip is not None:
+            x = torch.cat([x, skip], dim=1)
+        x = self.conv1(x)
+        shortcut_long = x
+        for i in range(self.num_groups):
+            rcab = getattr(self, 'rcab_{}'.format(i))
+            x = rcab(x)
+        x = x + shortcut_long
+
+        cd = getattr(self, 'conv_down', None)
+        if cd is not None:
+            x = cd(x)
+        return x
+
+
+class UNetDecoderBlock(torch.nn.Module):
+
+    def __init__(self, in_channel,
+                 skip_channel,
+                 features,
+                 num_groups=1,
+                 relu_slope=0.2,
+                 channels_reduction=4,
+                 bias=True):
+        super().__init__()
+
+        self.conv_up = conv_trans(in_channel, features, bias=bias)
+        self.encoder = UNetEncoderBlock(
+            in_channel=features,
+            skip_channel=skip_channel,
+            features=features,
+            num_groups=num_groups,
+            relu_slope=relu_slope,
+            channels_reduction=channels_reduction,
+            bias=bias)
+
+    def forward(self, x, bridge=None):
+        x = self.conv_up(x)  # self.features
+        x = self.encoder(x, skip=bridge)
+        return x
+
+
+class TransformerUnet(torch.nn.Module):
+    def __init__(self):
+        super(TransformerUnet, self).__init__()
+
+        features = 32
+        self.depth = 3
+        in_channel = 3
+        num_groups = 2
+        channels_reduction = 4
+        self.num_bottleneck_blocks = 2
+        use_bias = True
+
+        encoder_features = list()
+        for i in range(self.depth):
+            encoder = UNetEncoderBlock(
+                in_channel=in_channel,
+                skip_channel=0,
+                features=(2 ** i) * features,
+                num_groups=num_groups,
+                down_sample=True,
+                relu_slope=0.2,
+                channels_reduction=channels_reduction,
+                bias=use_bias)
+            in_channel = (2 ** i) * features
+            encoder_features.append(in_channel)
+            setattr(self, 'encoder_{}'.format(i), encoder)
+
+        for i in range(self.num_bottleneck_blocks):
+            neck = BottleneckBlock(
+                in_channel=in_channel,
+                features=in_channel,
+                num_groups=num_groups,
+                channels_reduction=channels_reduction,
+                dropout_rate=0.,
+                bias=use_bias)
+            setattr(self, 'block_{}'.format(i), neck)
+
+        cross_features = list()
+        for i in reversed(range(self.depth)):
+            for j in range(self.depth):
+                if i == j:
+                    continue
+                up_sample = UpSample(in_dim=encoder_features[j], out_dim=(2 ** i) * features, use_bias=use_bias)
+                setattr(self, 'cross_gate_up_sample_{}_{}'.format(i, j), up_sample)
+
+            cross_gate = torch.nn.Sequential(
+                conv1x1((2 ** i) * features * 3, (2 ** i) * features, bias=use_bias),
+                conv3x3((2 ** i) * features, (2 ** i) * features, bias=use_bias)
+            )
+            setattr(self, 'cross_gate_{}'.format(i), cross_gate)
+            cross_features.append((2 ** i) * features)
+
+        for i in reversed(range(self.depth)):
+            for j in range(self.depth):
+                up_sample = UpSample(in_dim=cross_features[j], out_dim=(2 ** i) * features, use_bias=use_bias)
+                setattr(self, 'decoder_up_sample_{}_{}'.format(i, j), up_sample)
+
+            decoder = UNetDecoderBlock(
+                in_channel=(2 ** i) * features,
+                skip_channel=cross_features[i],
+                features=(2 ** i) * features,
+                num_groups=num_groups,
+                relu_slope=0.2,
+                channels_reduction=channels_reduction,
+                bias=use_bias)
+            setattr(self, 'decoder_{}'.format(i), decoder)
+
+        return
+
+    def forward(self, x):
+        features = [x]
+        for i in range(self.depth):
+            x = getattr(self, 'encoder_{}'.format(i))(x)
+            features.append(x)
+
+        for i in range(self.num_bottleneck_blocks):
+            x = getattr(self, 'block_{}'.format(i))(x)
+
+        signals = list()
+        for i in reversed(range(self.depth)):
+            signal = list()
+            for j in range(self.depth):
+                if i == j:
+                    signal.append(features[j])
+                    continue
+                signal.append(getattr(self, 'cross_gate_up_sample_{}_{}'.format(i, j))(features[j], size=features[i].size[2:]))
+
+            signals.append(getattr(self, 'cross_gate_{}'.format(i))(torch.cat(signal, dim=1)))
+
+        for i in reversed(range(self.depth)):
+            skip = list()
+            for j in range(self.depth):
+                skip.append(getattr(self, 'decoder_up_sample_{}_{}'.format(i, j))(signals[i], size=x.size[2:]))
+            x = getattr(self, 'decoder_{}'.format(i))(x, torch.concat(skip, dim=1))
+
+        return x
