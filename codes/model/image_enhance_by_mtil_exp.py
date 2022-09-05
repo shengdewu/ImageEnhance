@@ -110,7 +110,7 @@ class MENGanModel(GanBaseModel):
                                                                               self.enable_d_model,
                                                                               self.level))
 
-        self.pyramid = LapPyramidConv(self.level)
+        self.pyramid = LapPyramidConv(self.level, device=self.device)
         return
 
     def create_g_model(self, cfg) -> torch.nn.Module:

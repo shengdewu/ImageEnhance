@@ -42,7 +42,7 @@ class MaximModel(PairBaseModel):
                                                                                 self.train_level,
                                                                                 self.level))
 
-        self.pyramid = LapPyramidConv(self.level)
+        self.pyramid = LapPyramidConv(self.level, device=self.device)
         return
 
     def create_g_model(self, cfg) -> torch.nn.Module:
