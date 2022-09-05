@@ -28,7 +28,8 @@ class DceTransformerNet(torch.nn.Module):
 
         logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}:\n down_factor {}\nfeatures {}\n'
                                                     'depth {}\n num_groups {}\n num_bottleneck_blocks {}\n'
-                                                    'cure_nums {}\n'.format(self.__class__, self.down_factor, features, depth, num_groups, num_bottleneck_blocks, cure_nums))
+                                                    'cure_nums {}\n'.format(self.__class__, self.down_factor, features,
+                                                                            depth, num_groups, num_bottleneck_blocks, self.cure_nums))
 
         self.up_stage = torch.nn.UpsamplingBilinear2d(scale_factor=self.down_factor)
 

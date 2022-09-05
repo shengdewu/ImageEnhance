@@ -3,7 +3,8 @@ from codes.model.build import BUILD_MODEL_REGISTRY
 from engine.loss.vgg_loss import PerceptualLoss
 import engine.loss.ssim_loss as engine_ssim
 from .image_enhance_pair_base import PairBaseModel
-from codes.data.fn import rgb2luma
+from codes.lap_pyramid import LapPyramidConv
+import logging
 
 
 @BUILD_MODEL_REGISTRY.register()
@@ -21,7 +22,11 @@ class CurlModel(PairBaseModel):
         self.lambda_cos = cfg.SOLVER.LOSS.LAMBDA_COS
         self.lambda_spline = cfg.SOLVER.LOSS.LAMBDA_SPLINE
         self.lambda_pixel = cfg.SOLVER.LOSS.LAMBDA_PIXEL
-        self.model_is_luma = cfg.MODEL.NETWORK.ARCH in ['CurlLumaRXTNet', 'CurlLumaNet']
+
+        self.pyramid = None
+        if cfg.INPUT.get('PYRAMID_LEVEL', 0) > 0:
+            self.pyramid = LapPyramidConv(cfg.INPUT.PYRAMID_LEVEL, device=self.device)
+            logging.getLogger(self.default_log_name).info('enable pyramid, level = {}'.format(cfg.INPUT.PYRAMID_LEVEL))
         return
 
     def run_step(self, data, *, epoch=None, **kwargs):
@@ -32,15 +37,15 @@ class CurlModel(PairBaseModel):
         :return:
         """
         device_input = data['input'].to(self.device, non_blocking=True)
-
-        if self.model_is_luma:
-            device_gray = rgb2luma.rgb2luma_bt601_nchw(device_input).unsqueeze(1)
-            # device_gray = data['luma'].to(self.device, non_blocking=True)
-            enhance_img, spline = self.g_model(device_input, device_gray)
-        else:
-            enhance_img, spline = self.g_model(device_input)
-
         device_gt = data['expert'].to(self.device, non_blocking=True)
+
+        if self.pyramid is not None:
+            input_lap, _ = self.pyramid.pyramid_decompose(device_input)
+            _, ref_gauss = self.pyramid.pyramid_decompose(device_gt)
+            device_input = input_lap[-1]
+            device_gt = ref_gauss[-1]
+
+        enhance_img, spline = self.g_model(device_input)
 
         pixel_loss = self.pixel_loss(enhance_img, device_gt)
         ssim_loss = 1.0 - self.ssim_loss(enhance_img, device_gt)
@@ -61,9 +66,12 @@ class CurlModel(PairBaseModel):
                 'spline': spline.item()}
 
     def generator(self, input_data):
-        if self.model_is_luma:
-            gray_data = rgb2luma.rgb2luma_bt601_nchw(input_data).unsqueeze(1)
-            return self.g_model(input_data.to(self.device, non_blocking=True), gray_data.to(self.device, non_blocking=True))
-        else:
+        if self.pyramid is None:
             return self.g_model(input_data.to(self.device, non_blocking=True))
+
+        input_data = input_data.to(self.device, non_blocking=True)
+        input_lap, _ = self.pyramid.pyramid_decompose(input_data)
+        low_res, cure_param = self.g_model(input_lap[-1])
+        input_lap[-1] = low_res
+        return self.pyramid.pyramid_recompose(input_lap), cure_param
 

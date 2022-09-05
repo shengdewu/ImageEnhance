@@ -4,4 +4,4 @@ from .curl_luma import CurlLumaNet
 from .curl_attention import CurlAttentionNet
 from .curl_luma_rxt import CurlLumaRXTNet
 from .curl_full.curl import CURLFullNet
-from curl_transformer import CurlTransformerNet
+from .curl_transformer import CurlTransformerNet
