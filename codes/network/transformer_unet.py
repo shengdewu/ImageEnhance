@@ -250,7 +250,7 @@ class UNetDecoderBlock(torch.nn.Module):
 
 
 class TransformerUnet(torch.nn.Module):
-    def __init__(self, depth=3, num_groups=2, features=32, num_bottleneck_blocks=2):
+    def __init__(self, in_channels, out_channels, depth=3, num_groups=2, features=32, num_bottleneck_blocks=2):
         super(TransformerUnet, self).__init__()
 
         self.depth = depth
@@ -258,7 +258,7 @@ class TransformerUnet(torch.nn.Module):
         self.num_bottleneck_blocks = num_bottleneck_blocks
         use_bias = True
 
-        self.input = conv3x3(in_channels=3, out_channels=features, bias=use_bias)
+        self.input = conv3x3(in_channels=in_channels, out_channels=features, bias=use_bias)
 
         for i in range(self.depth):
             encoder = UNetEncoderBlock(
@@ -312,7 +312,7 @@ class TransformerUnet(torch.nn.Module):
                 bias=use_bias)
             setattr(self, 'decoder_{}'.format(i), decoder)
 
-        self.output = conv3x3(features, 3, bias=use_bias)
+        self.output = conv3x3(features, out_channels, bias=use_bias)
 
         return
 
@@ -351,7 +351,16 @@ class TransformerUnet(torch.nn.Module):
 
 
 if __name__ == '__main__':
-    model = TransformerUnet(depth=3, features=16, num_bottleneck_blocks=1, num_groups=1)
+    """
+    depth=3, features=32, num_bottleneck_blocks=1, num_groups=1 模型大小=17M
+    depth=3, features=16, num_bottleneck_blocks=1, num_groups=2 模型大小=6.3M
+    depth=3, features=32, num_bottleneck_blocks=1, num_groups=2 模型大小=25M
+    depth=4, features=16, num_bottleneck_blocks=1, num_groups=2 模型大小=26M
+    depth=4, features=32, num_bottleneck_blocks=1, num_groups=2 模型大小=102M
+    depth=4, features=32, num_bottleneck_blocks=1, num_groups=1 模型大小=69M
+    depth=4, features=32, num_bottleneck_blocks=2, num_groups=2 模型大小=108M
+    """
+    model = TransformerUnet(in_channels=3, out_channels=3, depth=3, features=32, num_bottleneck_blocks=1, num_groups=1)
     ones = torch.ones([2, 3, 512, 510], dtype=torch.float32)
     x = model(ones)
-    print(x)
+    torch.save(model, '1.pth')
