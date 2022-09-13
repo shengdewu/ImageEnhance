@@ -52,7 +52,7 @@ class CurlTransformerNet(torch.nn.Module):
         self.backbone = TransformerUnet(in_channels=3, out_channels=knot_channels, depth=depth, num_groups=num_groups, features=features, num_bottleneck_blocks=num_bottleneck_blocks)
 
         self.avg = torch.nn.AdaptiveAvgPool2d(1)
-        self.fc = torch.nn.Linear(features, knot_points)
+        self.fc = torch.nn.Linear(knot_channels, knot_points)
         self.dropout = torch.nn.Dropout(0.5)
 
         return
