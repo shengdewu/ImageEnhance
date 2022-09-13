@@ -16,12 +16,14 @@ class CurlTransformerNet(torch.nn.Module):
         features = 32
         num_bottleneck_blocks = 1
         knot_points = 36
+        knot_channels = features * 2
         if cfg.MODEL.NETWORK.get('CURL_NET', None) is not None:
             features = cfg.MODEL.NETWORK.CURL_NET.get('KERNEL_NUMBER', features)
             depth = cfg.MODEL.NETWORK.CURL_NET.get('DEPTH', depth)
             num_groups = cfg.MODEL.NETWORK.CURL_NET.get('GROUPS', num_groups)
             num_bottleneck_blocks = cfg.MODEL.NETWORK.CURL_NET.get('BOTTLENECK', num_bottleneck_blocks)
             knot_points = cfg.MODEL.NETWORK.CURL_NET.get('KNOT_POINTS', knot_points)
+            knot_channels = cfg.MODEL.NETWORK.CURL_NET.get('KNOT_CHANNELS', knot_channels)
 
         assert knot_points % 3 == 0, 'the {} must be divisible by 3'.format(knot_points)
 
@@ -38,14 +40,16 @@ class CurlTransformerNet(torch.nn.Module):
                                                     'depth {}\n '
                                                     'num_groups {}\n '
                                                     'num_bottleneck_blocks {}\n'
-                                                    'knot_points {}\n'.format(self.__class__,
+                                                    'knot_points {}\n'
+                                                    'knot_channels {} \n'.format(self.__class__,
                                                                               self.down_factor,
                                                                               features,
                                                                               depth,
                                                                               num_groups,
                                                                               num_bottleneck_blocks,
-                                                                              knot_points))
-        self.backbone = TransformerUnet(in_channels=3, out_channels=features, depth=depth, num_groups=num_groups, features=features, num_bottleneck_blocks=num_bottleneck_blocks)
+                                                                              knot_points,
+                                                                              knot_channels))
+        self.backbone = TransformerUnet(in_channels=3, out_channels=knot_channels, depth=depth, num_groups=num_groups, features=features, num_bottleneck_blocks=num_bottleneck_blocks)
 
         self.avg = torch.nn.AdaptiveAvgPool2d(1)
         self.fc = torch.nn.Linear(features, knot_points)
