@@ -207,7 +207,8 @@ class UNetEncoderBlock(torch.nn.Module):
 
     def forward(self, x, skip=None):
         if skip is not None:
-            x = tnf.interpolate(x, size=skip.shape[2:])
+            if x.shape[2:] != skip.shape[2:]:
+                x = tnf.interpolate(x, size=skip.shape[2:])
             x = torch.cat([x, skip], dim=1)
         x = self.conv1(x)
         shortcut_long = x
@@ -249,9 +250,9 @@ class UNetDecoderBlock(torch.nn.Module):
         return x
 
 
-class TransformerUnet(torch.nn.Module):
+class TransformerCrossGateUnet(torch.nn.Module):
     def __init__(self, in_channels, out_channels, depth=3, num_groups=2, features=32, num_bottleneck_blocks=2):
-        super(TransformerUnet, self).__init__()
+        super(TransformerCrossGateUnet, self).__init__()
 
         self.depth = depth
         channels_reduction = 4
@@ -350,6 +351,71 @@ class TransformerUnet(torch.nn.Module):
         return self.output(x)
 
 
+class TransformerUnet(torch.nn.Module):
+    def __init__(self, in_channels, out_channels, depth=3, num_groups=2, features=32, num_bottleneck_blocks=2):
+        super(TransformerUnet, self).__init__()
+
+        self.depth = depth
+        channels_reduction = 4
+        self.num_bottleneck_blocks = num_bottleneck_blocks
+        use_bias = True
+
+        self.input = conv3x3(in_channels=in_channels, out_channels=features, bias=use_bias)
+
+        for i in range(self.depth):
+            encoder = UNetEncoderBlock(
+                in_channel=(2 ** i) * features,
+                skip_channel=0,
+                features=(2 ** (i+1)) * features,
+                num_groups=num_groups,
+                down_sample=True,
+                relu_slope=0.2,
+                channels_reduction=channels_reduction,
+                bias=use_bias)
+            setattr(self, 'encoder_{}'.format(i), encoder)
+
+        for i in range(self.num_bottleneck_blocks):
+            neck = BottleneckBlock(
+                in_channel=(2 ** self.depth) * features,
+                features=(2 ** self.depth) * features,
+                num_groups=num_groups,
+                channels_reduction=channels_reduction,
+                dropout_rate=0.,
+                bias=use_bias)
+            setattr(self, 'bottleneck_{}'.format(i), neck)
+
+        for i in reversed(range(self.depth)):
+            decoder = UNetDecoderBlock(
+                in_channel=(2 ** (i+1)) * features,
+                skip_channel=(2 ** (i+1)) * features,
+                features=(2 ** i) * features,
+                num_groups=num_groups,
+                relu_slope=0.2,
+                channels_reduction=channels_reduction,
+                bias=use_bias)
+            setattr(self, 'decoder_{}'.format(i), decoder)
+
+        self.output = conv3x3(features, out_channels, bias=use_bias)
+
+        return
+
+    def forward(self, x):
+        x = self.input(x)
+
+        features = list()
+        for i in range(self.depth):
+            x, bridge = getattr(self, 'encoder_{}'.format(i))(x)
+            features.append(bridge)
+
+        for i in range(self.num_bottleneck_blocks):
+            x = getattr(self, 'bottleneck_{}'.format(i))(x)
+
+        for i in reversed(range(self.depth)):
+            x = getattr(self, 'decoder_{}'.format(i))(x, features[i])
+
+        return self.output(x)
+
+
 if __name__ == '__main__':
     """
     depth=3, features=32, num_bottleneck_blocks=1, num_groups=1 模型大小=17M
@@ -360,7 +426,7 @@ if __name__ == '__main__':
     depth=4, features=32, num_bottleneck_blocks=1, num_groups=1 模型大小=69M
     depth=4, features=32, num_bottleneck_blocks=2, num_groups=2 模型大小=108M
     """
-    model = TransformerUnet(in_channels=3, out_channels=3, depth=3, features=32, num_bottleneck_blocks=1, num_groups=1)
+    model = TransformerUnet(in_channels=3, out_channels=3, depth=4, features=32, num_bottleneck_blocks=1, num_groups=2)
     ones = torch.ones([2, 3, 512, 510], dtype=torch.float32)
     x = model(ones)
     torch.save(model, '1.pth')
