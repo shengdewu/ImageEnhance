@@ -22,8 +22,6 @@ class DceTransformerNet(torch.nn.Module):
             self.cure_nums = cfg.MODEL.NETWORK.DCE_NET.get('CURE_NUMS', self.cure_nums)
 
         self.down_factor = cfg.INPUT.DOWN_FACTOR
-        if cfg.INPUT.get('PYRAMID_LEVEL', 0) > 0:
-            self.down_factor = 1
         assert self.down_factor % 2 == 0 or self.down_factor == 1, 'the {} must be divisible by 2 or equal 1'.format(self.down_factor)
 
         logging.getLogger(cfg.OUTPUT_LOG_NAME).info('create network {}:\n down_factor {}\nfeatures {}\n'
