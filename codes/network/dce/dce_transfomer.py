@@ -29,8 +29,6 @@ class DceTransformerNet(torch.nn.Module):
                                                     'cure_nums {}\n'.format(self.__class__, self.down_factor, features,
                                                                             depth, num_groups, num_bottleneck_blocks, self.cure_nums))
 
-        self.up_stage = torch.nn.UpsamplingBilinear2d(scale_factor=self.down_factor)
-
         self.stem = torch.nn.Sequential(
             TransformerUnet(in_channels=3, out_channels=3, depth=depth, num_groups=num_groups, features=features, num_bottleneck_blocks=num_bottleneck_blocks),
             torch.nn.Tanh()
@@ -48,5 +46,5 @@ class DceTransformerNet(torch.nn.Module):
             dx = torch_func.interpolate(x, scale_factor=1/self.down_factor, mode='bilinear')
         cure = self.stem(dx)
         if self.down_factor > 1:
-            cure = self.up_stage(cure)
+            cure = torch_func.interpolate(cure, size=x.shape[2:], mode='bilinear')
         return self.enhance(x, cure), cure
