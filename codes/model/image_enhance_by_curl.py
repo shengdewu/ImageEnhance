@@ -26,7 +26,7 @@ class CurlModel(PairBaseModel):
         self.pyramid = None
         if cfg.INPUT.get('PYRAMID_LEVEL', 0) > 0:
             self.pyramid = LapPyramidConv(cfg.INPUT.PYRAMID_LEVEL, device=self.device)
-            logging.getLogger(self.default_log_name).info('enable pyramid, level = {}'.format(cfg.INPUT.PYRAMID_LEVEL))
+            logging.getLogger(self.default_log_name).info('enable pyramid for test, level = {}'.format(cfg.INPUT.PYRAMID_LEVEL))
         return
 
     def run_step(self, data, *, epoch=None, **kwargs):
@@ -38,12 +38,6 @@ class CurlModel(PairBaseModel):
         """
         device_input = data['input'].to(self.device, non_blocking=True)
         device_gt = data['expert'].to(self.device, non_blocking=True)
-
-        if self.pyramid is not None:
-            input_lap, _ = self.pyramid.pyramid_decompose(device_input)
-            _, ref_gauss = self.pyramid.pyramid_decompose(device_gt)
-            device_input = input_lap[-1]
-            device_gt = ref_gauss[-1]
 
         enhance_img, spline = self.g_model(device_input)
 
@@ -66,7 +60,7 @@ class CurlModel(PairBaseModel):
                 'spline': spline.item()}
 
     def generator(self, input_data):
-        if self.pyramid is None:
+        if self.g_model.training or self.pyramid is None:
             return self.g_model(input_data.to(self.device, non_blocking=True))
 
         input_data = input_data.to(self.device, non_blocking=True)
