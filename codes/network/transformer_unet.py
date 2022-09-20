@@ -1,9 +1,12 @@
 import torch
 import torch.nn.functional as tnf
 import einops
+import engine.model.depth_wise as emd
 
 
-def conv3x3(in_channels, out_channels, bias=True):
+def conv3x3(in_channels, out_channels, bias=True, is_dw=True):
+    if is_dw:
+        return emd.DepthWiseSeparableConv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=bias)
     return torch.nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=bias)
 
 
