@@ -2,7 +2,8 @@ import torch
 import torch.nn.functional as torch_func
 import logging
 from codes.network.build import BUILD_NETWORK_REGISTRY
-from codes.network.transformer_unet import TransformerUnet
+# from codes.network.transformer_unet import TransformerUnet
+from codes.network.transformer_simple_unet import TransformerUnet
 
 
 @BUILD_NETWORK_REGISTRY.register()
@@ -30,7 +31,8 @@ class DceTransformerNet(torch.nn.Module):
                                                                             depth, num_groups, num_bottleneck_blocks, self.cure_nums))
 
         self.stem = torch.nn.Sequential(
-            TransformerUnet(in_channels=3, out_channels=3, depth=depth, num_groups=num_groups, features=features, num_bottleneck_blocks=num_bottleneck_blocks),
+            # TransformerUnet(in_channels=3, out_channels=3, depth=depth, num_groups=num_groups, features=features, num_bottleneck_blocks=num_bottleneck_blocks),
+            TransformerUnet(in_channels=3, out_channels=3, depth=depth, features=features, num_bottleneck_blocks=num_bottleneck_blocks),
             torch.nn.Tanh()
         )
         return
